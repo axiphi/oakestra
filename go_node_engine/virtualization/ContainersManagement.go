@@ -37,11 +37,8 @@ import (
 
 func init() {
 	virtrt.Register(string(model.CONTAINER_RUNTIME), newContainerdRuntime)
-	plugins := findAdditionalRuntimePlugins()
-	if plugins != nil {
-		for additionalName := range findAdditionalRuntimePlugins() {
-			virtrt.Register(additionalName, newContainerdRuntime)
-		}
+	for additionalName := range findAdditionalRuntimePlugins() {
+		virtrt.Register(additionalName, newContainerdRuntime)
 	}
 }
 
@@ -104,17 +101,18 @@ func newContainerdRuntime(_ virtrt.RuntimeInfo) virtrt.Runtime {
 // Parses TOML directly: containerd's v2 LoadConfig rejects legacy short-form
 // disabled_plugins entries (e.g. "cri") that ship with Docker's containerd.
 func findAdditionalRuntimePlugins() iter.Seq[string] {
+	empty := func(yield func(string) bool) {}
 	data, err := os.ReadFile(CONTAINERD_CONFIG_PATH)
 	if err != nil {
 		logger.ErrorLogger().Printf("Unable to read containerd config file: %v", err)
-		return nil
+		return empty
 	}
 	var containerdConfig struct {
 		Plugins map[string]interface{} `toml:"plugins"`
 	}
 	if err := toml.Unmarshal(data, &containerdConfig); err != nil {
 		logger.ErrorLogger().Printf("Unable to parse containerd config file: %v", err)
-		return nil
+		return empty
 	}
 	for _, ctd := range containerdConfig.Plugins {
 		ctd, ok := ctd.(map[string]interface{})["containerd"].(map[string]interface{})
@@ -128,7 +126,7 @@ func findAdditionalRuntimePlugins() iter.Seq[string] {
 			}
 		}
 	}
-	return nil
+	return empty
 }
 
 // StopContainerdClient stops the container runtime client
