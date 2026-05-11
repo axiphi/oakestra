@@ -90,8 +90,13 @@ func newContainerdRuntime(_ virtrt.RuntimeInfo) virtrt.Runtime {
 	runtime.mountedVolumes = make(map[string][]csi.MountedVolume)
 
 	// Advertise sub-runtimes discovered from the containerd config (e.g. runc).
+	found := false
 	for name := range findAdditionalRuntimePlugins() {
 		model.GetNodeInfo().AddSupportedTechnology(model.RuntimeType(name))
+		found = true
+	}
+	if !found {
+		logger.WarnLogger().Printf("No additional OCI runtimes found in containerd config %s", CONTAINERD_CONFIG_PATH)
 	}
 
 	return &runtime
@@ -126,6 +131,7 @@ func findAdditionalRuntimePlugins() iter.Seq[string] {
 			}
 		}
 	}
+	logger.WarnLogger().Printf("No OCI runtimes found in containerd config %s", CONTAINERD_CONFIG_PATH)
 	return empty
 }
 
