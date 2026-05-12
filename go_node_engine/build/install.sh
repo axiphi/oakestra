@@ -61,6 +61,19 @@ sudo systemctl daemon-reload >/dev/null 2>&1
 sudo chmod 755 /bin/NodeEngine
 sudo chmod 755 /bin/nodeengined
 
+if [ -e oakestra.logrotate ]; then
+    logrotate_src="oakestra.logrotate"
+elif [ -e ../oakestra.logrotate ]; then
+    logrotate_src="../oakestra.logrotate"
+else
+    echo "Warning: oakestra.logrotate not found — log rotation will not be configured"
+    logrotate_src=""
+fi
+
+if [ -n "$logrotate_src" ]; then
+    sudo cp "$logrotate_src" /etc/logrotate.d/oakestra
+fi
+
 if [ $? -eq 0 ]; then
   echo "Done, installation successful"
 else
