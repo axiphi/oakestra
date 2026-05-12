@@ -43,9 +43,10 @@ class NegativeSchedulingStatus(SchedulingStatus):
 class PositiveSchedulingStatus(SchedulingStatus):
     REQUESTED = "REQUESTED"
     CLUSTER_SCHEDULED = "CLUSTER_SCHEDULED"
-    # The container is not yet created but the node is working on it.
-    # E.g. pulling the image.
+    # Deploy command sent to the worker, waiting for acknowledgement.
     NODE_SCHEDULED = "NODE_SCHEDULED"
+    # Worker accepted the deploy; container not running yet (e.g. image pull in progress).
+    INSTANTIATION = "INSTANTIATION"
 
 
 class DeploymentStatus(Status):

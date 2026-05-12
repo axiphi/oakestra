@@ -14,18 +14,23 @@ from resource_abstractor_client import candidate_operations, job_operations
 logger = logging.getLogger("cluster_manager")
 
 
+NODE_SCHEDULED_TIMEOUT = 15  # seconds; deploy command sent but no worker ACK yet
+
+
 def mark_inactive_as_failed(time_interval):
-    cutoff = (datetime.now() - timedelta(seconds=time_interval)).timestamp()
+    now = datetime.now().timestamp()
+    running_cutoff = now - time_interval
+    node_scheduled_cutoff = now - NODE_SCHEDULED_TIMEOUT
+
+    # Pre-filter with the tightest cutoff; per-status thresholds applied below.
+    min_cutoff = min(running_cutoff, node_scheduled_cutoff)
     query = {
         "instance_list": {
             "$elemMatch": {
-                "$or": [
-                    {"last_modified_timestamp": {"$lt": cutoff}},
-                ]
+                "last_modified_timestamp": {"$lt": min_cutoff},
             }
         }
     }
-
     jobs = job_operations.get_jobs(**query)
     if jobs is None:
         return
@@ -35,14 +40,27 @@ def mark_inactive_as_failed(time_interval):
 
         for instance in job["instance_list"]:
             job_status = convert_to_status(instance.get("status", None)) or LegacyStatus.LEGACY_0
+            timestamp = instance.get("last_modified_timestamp", now)
 
-            timestamp = instance.get("last_modified_timestamp", datetime.now().timestamp())
-
+            stale = False
             if (
-                timestamp < cutoff
+                job_status == PositiveSchedulingStatus.NODE_SCHEDULED
+                and timestamp < node_scheduled_cutoff
+            ):
+                stale = True
+            elif (
+                job_status == PositiveSchedulingStatus.INSTANTIATION
+                and timestamp < running_cutoff
+            ):
+                stale = True
+            elif (
+                timestamp < running_cutoff
                 and job_status not in PositiveSchedulingStatus
                 and job_status != DeploymentStatus.COMPLETED
             ):
+                stale = True
+
+            if stale:
                 update_instance(
                     job.get("_id"),
                     instance.get("instance_number"),
@@ -133,10 +151,12 @@ def update_deployed_instance_job(job_name, instance_number, service, worker_id):
         return None
 
     job_id = jobs[0].get("_id")
+    # Workers on the new INSTANTIATION protocol report status; older ones omit it (default to RUNNING).
+    reported_status = service.get("status") or DeploymentStatus.RUNNING.value
     update_status(
         job_id,
         int(instance_number),
-        DeploymentStatus.RUNNING.value,
+        reported_status,
         service.get("status_detail", None),
     )
     data = {

@@ -47,6 +47,8 @@ type Resources struct {
 	Sname    string `json:"job_name"`
 	Runtime  string `json:"virtualization"`
 	Instance int    `json:"instance"`
+	// Only set during INSTANTIATION. Absent means RUNNING (backwards compat).
+	Status string `json:"status,omitempty"`
 }
 
 // ServiceStatus is the struct that describes the service status
@@ -69,4 +71,7 @@ const (
 	// SERVICE_UNDEPLOYED means the service was undeployed successfully and is not running anymore.
 	// This status is managed from outside the runtimes.
 	SERVICE_UNDEPLOYED = "UNDEPLOYED"
+	// SERVICE_INSTANTIATION means the worker accepted the deploy and is creating
+	// the container. Emitted before Deploy() starts; cleared on completion.
+	SERVICE_INSTANTIATION = "INSTANTIATION"
 )

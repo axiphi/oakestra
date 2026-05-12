@@ -7,7 +7,9 @@ import (
 	"go_node_engine/logger"
 	"go_node_engine/model"
 	"go_node_engine/virtualization"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -15,6 +17,11 @@ import (
 
 // TOPICS is a map of topics and their handlers
 var TOPICS = make(map[string]mqtt.MessageHandler)
+
+// Services pulling an image have no containerd entry yet, so the resource
+// monitor can't pick them up. Track them here and inject into each
+// ReportServiceResources call to keep the cluster heartbeat alive.
+var instantiatingServices sync.Map
 
 var clientID = ""
 var mainMqttClient mqtt.Client
@@ -133,10 +140,18 @@ func deployHandler(client mqtt.Client, msg mqtt.Message, runtimeManager *virtual
 		logger.ErrorLogger().Printf("ERROR: unable to unmarshal cluster orch request: %v", err)
 		return
 	}
+	// Tell the cluster we received the command, then register for heartbeat
+	// tracking - without this, a long image pull looks like a dead worker.
+	service.Status = model.SERVICE_INSTANTIATION
+	ReportServiceStatus(service)
+	key := service.Sname + "/" + strconv.Itoa(service.Instance)
+	instantiatingServices.Store(key, service)
+
 	//handle deployment in background
 	go func() {
 		runtime := runtimeManager.GetRuntime(model.RuntimeType(service.Runtime))
 		err = runtime.Deploy(service, ReportServiceStatus)
+		instantiatingServices.Delete(key)
 		service.Status = model.SERVICE_CREATED
 		if err != nil {
 			logger.ErrorLogger().Printf("ERROR during app deployment: %v", err)
@@ -190,15 +205,24 @@ func ReportServiceStatus(service model.Service) {
 	publishToBroker("job", string(jsonmsg))
 }
 
-// ReportServiceResources reports the resources of the services
+// ReportServiceResources reports the resources of the services. In-flight
+// instantiations are appended so the cluster doesn't time them out during
+// a long image pull.
 func ReportServiceResources(services []model.Resources) {
+	instantiatingServices.Range(func(_, v any) bool {
+		s := v.(model.Service)
+		services = append(services, model.Resources{
+			Sname:    s.Sname,
+			Instance: s.Instance,
+			Runtime:  s.Runtime,
+			Status:   model.SERVICE_INSTANTIATION,
+		})
+		return true
+	})
 	type ServiceResources struct {
 		Services []model.Resources `json:"services"`
 	}
-	reportStatusStruct := ServiceResources{
-		Services: services,
-	}
-	jsonmsg, err := json.Marshal(reportStatusStruct)
+	jsonmsg, err := json.Marshal(ServiceResources{Services: services})
 	if err != nil {
 		logger.ErrorLogger().Printf("ERROR: unable to report services resources: %v", err)
 	}
