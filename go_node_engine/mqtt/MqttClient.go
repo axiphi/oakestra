@@ -140,8 +140,7 @@ func deployHandler(client mqtt.Client, msg mqtt.Message, runtimeManager *virtual
 		logger.ErrorLogger().Printf("ERROR: unable to unmarshal cluster orch request: %v", err)
 		return
 	}
-	// Tell the cluster we received the command, then register for heartbeat
-	// tracking - without this, a long image pull looks like a dead worker.
+	// Without this, a long image pull looks like a dead worker to the cluster.
 	service.Status = model.SERVICE_INSTANTIATION
 	ReportServiceStatus(service)
 	key := service.Sname + "/" + strconv.Itoa(service.Instance)
@@ -149,9 +148,9 @@ func deployHandler(client mqtt.Client, msg mqtt.Message, runtimeManager *virtual
 
 	//handle deployment in background
 	go func() {
+		defer instantiatingServices.Delete(key)
 		runtime := runtimeManager.GetRuntime(model.RuntimeType(service.Runtime))
 		err = runtime.Deploy(service, ReportServiceStatus)
-		instantiatingServices.Delete(key)
 		service.Status = model.SERVICE_CREATED
 		if err != nil {
 			logger.ErrorLogger().Printf("ERROR during app deployment: %v", err)

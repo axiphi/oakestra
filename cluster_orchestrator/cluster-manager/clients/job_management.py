@@ -22,12 +22,13 @@ def mark_inactive_as_failed(time_interval):
     running_cutoff = now - time_interval
     node_scheduled_cutoff = now - NODE_SCHEDULED_TIMEOUT
 
-    # Pre-filter with the tightest cutoff; per-status thresholds applied below.
-    min_cutoff = min(running_cutoff, node_scheduled_cutoff)
+    # Pre-filter with the broadest cutoff so no potentially-stale instance is missed;
+    # per-status thresholds are applied below in Python.
+    max_cutoff = max(running_cutoff, node_scheduled_cutoff)
     query = {
         "instance_list": {
             "$elemMatch": {
-                "last_modified_timestamp": {"$lt": min_cutoff},
+                "last_modified_timestamp": {"$lt": max_cutoff},
             }
         }
     }
@@ -42,23 +43,11 @@ def mark_inactive_as_failed(time_interval):
             job_status = convert_to_status(instance.get("status", None)) or LegacyStatus.LEGACY_0
             timestamp = instance.get("last_modified_timestamp", now)
 
-            stale = False
-            if (
-                job_status == PositiveSchedulingStatus.NODE_SCHEDULED
-                and timestamp < node_scheduled_cutoff
-            ):
-                stale = True
-            elif (
-                job_status == PositiveSchedulingStatus.INSTANTIATION
-                and timestamp < running_cutoff
-            ):
-                stale = True
-            elif (
-                timestamp < running_cutoff
-                and job_status not in PositiveSchedulingStatus
-                and job_status != DeploymentStatus.COMPLETED
-            ):
-                stale = True
+            stale = (
+                (job_status == PositiveSchedulingStatus.NODE_SCHEDULED and timestamp < node_scheduled_cutoff)
+                or (job_status == PositiveSchedulingStatus.INSTANTIATION and timestamp < running_cutoff)
+                or (timestamp < running_cutoff and job_status not in PositiveSchedulingStatus and job_status != DeploymentStatus.COMPLETED)
+            )
 
             if stale:
                 update_instance(
