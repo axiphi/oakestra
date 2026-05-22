@@ -70,11 +70,13 @@ else
     logrotate_src=""
 fi
 
+logrotate_status=0
 if [ -n "$logrotate_src" ]; then
     sudo cp "$logrotate_src" /etc/logrotate.d/oakestra
+    logrotate_status=$?
 fi
 
-if [ $? -eq 0 ]; then
+if [ $logrotate_status -eq 0 ]; then
   echo "Done, installation successful"
 else
   echo "Installation failed, errors reported!"
