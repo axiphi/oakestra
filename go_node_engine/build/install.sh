@@ -17,6 +17,7 @@ if [ ! $? -eq 0 ]; then
 fi
 
 arch="$1"
+set -e
 
 #check containerd installation
 if sudo systemctl | grep -Fq 'containerd'; then
@@ -32,9 +33,9 @@ else
 fi
 
 #install latest version
-sudo mkdir /var/log/oakestra >/dev/null 2>&1
-sudo systemctl stop nodeengine >/dev/null 2>&1
-sudo systemctl stop netmanager >/dev/null 2>&1
+sudo mkdir -p /var/log/oakestra
+sudo systemctl stop nodeengine 2>/dev/null || true
+sudo systemctl stop netmanager 2>/dev/null || true
 
 #compatibility with build script
 if [ -e NodeEngine ]
@@ -56,7 +57,7 @@ else
     sudo cp ../nodeengine.service /etc/systemd/system/nodeengine.service
 fi  
 
-sudo systemctl daemon-reload >/dev/null 2>&1
+sudo systemctl daemon-reload
 
 sudo chmod 755 /bin/NodeEngine
 sudo chmod 755 /bin/nodeengined
@@ -70,15 +71,8 @@ else
     logrotate_src=""
 fi
 
-logrotate_status=0
 if [ -n "$logrotate_src" ]; then
-    sudo cp "$logrotate_src" /etc/logrotate.d/oakestra
-    logrotate_status=$?
+    sudo cp "$logrotate_src" /etc/logrotate.d/oakestra || echo "Warning: failed to install logrotate config — log rotation will not be configured"
 fi
 
-if [ $logrotate_status -eq 0 ]; then
-  echo "Done, installation successful"
-else
-  echo "Installation failed, errors reported!"
-  exit 1
-fi
+echo "Done, installation successful"
