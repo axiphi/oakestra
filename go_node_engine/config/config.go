@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go_node_engine/logger"
+	"io"
 	"os"
 )
 
@@ -91,7 +92,7 @@ func getConfFile() (*os.File, ConfFile, error) {
 		//read cluster configuration
 		buffer := make([]byte, 2048)
 		n, err := confFile.Read(buffer)
-		if err != nil {
+		if err != nil && !(n > 0 && err == io.EOF) {
 			return nil, ConfFile{}, err
 		}
 		err = json.Unmarshal(buffer[:n], &clusterConf)
