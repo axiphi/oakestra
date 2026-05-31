@@ -14,13 +14,10 @@ from resource_abstractor_client import candidate_operations, job_operations
 logger = logging.getLogger("cluster_manager")
 
 
-NODE_SCHEDULED_TIMEOUT = 15  # seconds; deploy command sent but no worker ACK yet
-
-
-def mark_inactive_as_failed(time_interval):
+def mark_inactive_as_failed(running_timeout, node_scheduled_timeout):
     now = datetime.now().timestamp()
-    running_cutoff = now - time_interval
-    node_scheduled_cutoff = now - NODE_SCHEDULED_TIMEOUT
+    running_cutoff = now - running_timeout
+    node_scheduled_cutoff = now - node_scheduled_timeout
 
     # Pre-filter with the broadest cutoff so no potentially-stale instance is missed;
     # per-status thresholds are applied below in Python.
@@ -73,8 +70,8 @@ def mark_inactive_as_failed(time_interval):
     return
 
 
-def aggregate_info(time_interval):
-    mark_inactive_as_failed(time_interval)
+def aggregate_info(running_timeout, node_scheduled_timeout):
+    mark_inactive_as_failed(running_timeout, node_scheduled_timeout)
     jobs = job_operations.get_jobs() or []
 
     return [
