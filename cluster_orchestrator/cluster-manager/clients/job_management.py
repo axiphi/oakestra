@@ -41,9 +41,19 @@ def mark_inactive_as_failed(running_timeout, node_scheduled_timeout):
             timestamp = instance.get("last_modified_timestamp", now)
 
             stale = (
-                (job_status == PositiveSchedulingStatus.NODE_SCHEDULED and timestamp < node_scheduled_cutoff)
-                or (job_status == PositiveSchedulingStatus.INSTANTIATION and timestamp < running_cutoff)
-                or (timestamp < running_cutoff and job_status not in PositiveSchedulingStatus and job_status != DeploymentStatus.COMPLETED)
+                (
+                    job_status == PositiveSchedulingStatus.NODE_SCHEDULED
+                    and timestamp < node_scheduled_cutoff
+                )
+                or (
+                    job_status == PositiveSchedulingStatus.INSTANTIATION
+                    and timestamp < running_cutoff
+                )
+                or (
+                    timestamp < running_cutoff
+                    and job_status not in PositiveSchedulingStatus
+                    and job_status != DeploymentStatus.COMPLETED
+                )
             )
 
             if stale:
