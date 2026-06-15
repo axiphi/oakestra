@@ -71,40 +71,40 @@ func GetConfFileManager() ConfFileManager {
 }
 
 func getConfFile() (*os.File, ConfFile, error) {
-	clusterConf := ConfFile{}
-
 	confFile, err := os.OpenFile("/etc/oakestra/conf.json", os.O_RDWR, 0644)
 	if err != nil {
-		//create dir /etc/oakestra if not present
-		err := os.MkdirAll("/etc/oakestra", 0755)
-		if err != nil {
-			fmt.Println(err)
+		if err := os.MkdirAll("/etc/oakestra", 0755); err != nil {
+			logger.ErrorLogger().Printf("Failed to create config directory /etc/oakestra: %v\n", err)
 			return nil, ConfFile{}, err
 		}
-
-		//create file /etc/oakestra/cluster.cfg with the cluster address and port
 		confFile, err = os.Create("/etc/oakestra/conf.json")
 		if err != nil {
-			fmt.Println(err)
+			logger.ErrorLogger().Printf("Failed to create config file /etc/oakestra/conf.json: %v\n", err)
 			return nil, ConfFile{}, err
 		}
-	} else {
-		//read cluster configuration
-		buffer := make([]byte, 2048)
-		n, err := confFile.Read(buffer)
-		if err != nil && !(n > 0 && err == io.EOF) {
-			return nil, ConfFile{}, err
-		}
-		err = json.Unmarshal(buffer[:n], &clusterConf)
-		if err != nil {
-			fmt.Printf("Error reading configuration: %v\n, resetting the file", err)
-			err := confFile.Truncate(0)
-			if err != nil {
-				return nil, ConfFile{}, err
-			}
-			return nil, ConfFile{}, err
+		logger.InfoLogger().Printf("No config file found, using default configuration")
+		return confFile, GenDefaultConfig(), nil
+	}
 
+	data, err := io.ReadAll(confFile)
+	if err != nil {
+		confFile.Close()
+		return nil, ConfFile{}, err
+	}
+	if len(data) == 0 {
+		logger.InfoLogger().Printf("Config file is empty, using default configuration")
+		return confFile, GenDefaultConfig(), nil
+	}
+
+	var clusterConf ConfFile
+	if err = json.Unmarshal(data, &clusterConf); err != nil {
+		fmt.Printf("Error reading configuration: %v, resetting the file\n", err)
+		if truncErr := confFile.Truncate(0); truncErr != nil {
+			confFile.Close()
+			return nil, ConfFile{}, truncErr
 		}
+		confFile.Close()
+		return nil, ConfFile{}, err
 	}
 
 	return confFile, clusterConf, nil
