@@ -88,7 +88,7 @@ func getConfFile() (*os.File, ConfFile, error) {
 
 	data, err := io.ReadAll(confFile)
 	if err != nil {
-		confFile.Close()
+		_ = confFile.Close()
 		return nil, ConfFile{}, err
 	}
 	if len(data) == 0 {
@@ -100,10 +100,10 @@ func getConfFile() (*os.File, ConfFile, error) {
 	if err = json.Unmarshal(data, &clusterConf); err != nil {
 		fmt.Printf("Error reading configuration: %v, resetting the file\n", err)
 		if truncErr := confFile.Truncate(0); truncErr != nil {
-			confFile.Close()
+			_ = confFile.Close()
 			return nil, ConfFile{}, truncErr
 		}
-		confFile.Close()
+		_ = confFile.Close()
 		return nil, ConfFile{}, err
 	}
 
