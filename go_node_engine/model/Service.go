@@ -47,7 +47,7 @@ type Resources struct {
 	Sname    string `json:"job_name"`
 	Runtime  string `json:"virtualization"`
 	Instance int    `json:"instance"`
-	Status string `json:"status"`
+	Status   string `json:"status"`
 }
 
 // ServiceStatus is the struct that describes the service status
