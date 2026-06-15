@@ -590,6 +590,7 @@ func (r *UnikernelRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Logs:     getLogs(domain.Name),
 				Runtime:  string(model.UNIKERNEL_RUNTIME),
 				Instance: domain.Instance,
+				Status:   model.SERVICE_RUNNING,
 			})
 
 		}

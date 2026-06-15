@@ -256,6 +256,7 @@ func (r *Runtime) reportResources(notifyHandler func(res []model.Resources)) {
 			Logs:     logs,
 			Runtime:  string(model.CROSVM_RUNTIME),
 			Instance: instanceNumber,
+			Status:   model.SERVICE_RUNNING,
 		})
 	}
 

@@ -560,6 +560,7 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Runtime:  string(model.CONTAINER_RUNTIME),
 				Logs:     getLogs(container.ID()),
 				Instance: extractInstanceNumberFromTaskID(container.ID()),
+				Status:   model.SERVICE_RUNNING,
 			})
 		}
 		//NOTIFY WITH THE CURRENT CONTAINERS STATUS
