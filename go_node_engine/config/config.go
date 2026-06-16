@@ -2,14 +2,18 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"go_node_engine/logger"
-	"io"
 	"os"
 )
 
-var DEFAULT_LOG_DIR = "/tmp"
-var AUTO_OAK_NETWORK = "default"
+const (
+	DEFAULT_LOG_DIR  = "/tmp"
+	AUTO_OAK_NETWORK = "default"
+
+	confDir  = "/etc/oakestra"
+	confPath = "/etc/oakestra/conf.json"
+)
 
 // RuntimeType is the type of runtime that the node executes
 type RuntimeType string
@@ -70,95 +74,38 @@ func GetConfFileManager() ConfFileManager {
 	return &f
 }
 
-func getConfFile() (*os.File, ConfFile, error) {
-	confFile, err := os.OpenFile("/etc/oakestra/conf.json", os.O_RDWR, 0644)
-	if err != nil {
-		if err := os.MkdirAll("/etc/oakestra", 0755); err != nil {
-			logger.ErrorLogger().Printf("Failed to create config directory /etc/oakestra: %v\n", err)
-			return nil, ConfFile{}, err
-		}
-		confFile, err = os.Create("/etc/oakestra/conf.json")
-		if err != nil {
-			logger.ErrorLogger().Printf("Failed to create config file /etc/oakestra/conf.json: %v\n", err)
-			return nil, ConfFile{}, err
-		}
-		logger.InfoLogger().Printf("No config file found, using default configuration")
-		return confFile, GenDefaultConfig(), nil
-	}
-
-	data, err := io.ReadAll(confFile)
-	if err != nil {
-		_ = confFile.Close()
-		return nil, ConfFile{}, err
-	}
-	if len(data) == 0 {
-		logger.InfoLogger().Printf("Config file is empty, using default configuration")
-		return confFile, GenDefaultConfig(), nil
-	}
-
-	var clusterConf ConfFile
-	if err = json.Unmarshal(data, &clusterConf); err != nil {
-		fmt.Printf("Error reading configuration: %v, resetting the file\n", err)
-		if truncErr := confFile.Truncate(0); truncErr != nil {
-			_ = confFile.Close()
-			return nil, ConfFile{}, truncErr
-		}
-		_ = confFile.Close()
-		return nil, ConfFile{}, err
-	}
-
-	return confFile, clusterConf, nil
-}
-
 func (c *ConfFile) Get() (ConfFile, error) {
-	confFile, configF, err := getConfFile()
+	data, err := os.ReadFile(confPath)
+	if errors.Is(err, os.ErrNotExist) || (err == nil && len(data) == 0) {
+		logger.InfoLogger().Printf("Config file missing or empty, using default configuration")
+		def := GenDefaultConfig()
+		return def, c.Write(def)
+	}
 	if err != nil {
 		return *c, err
 	}
-	defer func() {
-		err := confFile.Close()
-		if err != nil {
-			logger.ErrorLogger().Printf("%v\n", err)
+
+	var clusterConf ConfFile
+	if err := json.Unmarshal(data, &clusterConf); err != nil {
+		logger.ErrorLogger().Printf("Error reading configuration: %v, resetting the file\n", err)
+		if resetErr := c.Write(GenDefaultConfig()); resetErr != nil {
+			return *c, resetErr
 		}
-	}()
-	return configF, nil
+		return *c, err
+	}
+	return clusterConf, nil
 }
 
 func (c *ConfFile) Write(new ConfFile) error {
-	c = &new
-
-	marshalled, err := json.Marshal(c)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	confFile, _, err := getConfFile()
+	data, err := json.Marshal(new)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err := confFile.Close()
-		if err != nil {
-			logger.ErrorLogger().Printf("%v\n", err)
-		}
-	}()
-
-	err = confFile.Truncate(0)
-	if err != nil {
+	if err := os.MkdirAll(confDir, 0755); err != nil {
+		logger.ErrorLogger().Printf("Failed to create config directory %s: %v\n", confDir, err)
 		return err
 	}
-	_, err = confFile.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-	_, err = confFile.Write(marshalled)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	return nil
+	return os.WriteFile(confPath, data, 0644)
 }
 
 func GenDefaultConfig() ConfFile {
