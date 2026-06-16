@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	DEFAULT_LOG_DIR  = "/tmp"
-	AUTO_OAK_NETWORK = "default"
+	DefaultLogDir  = "/tmp"
+	AutoOakNetwork = "default"
 
 	confDir  = "/etc/oakestra"
 	confPath = "/etc/oakestra/conf.json"
@@ -110,8 +110,8 @@ func Default() ConfFile {
 		ClusterAddress: "0.0.0.0",
 		ClusterPort:    10100,
 		ClusterSSL:     false,
-		AppLogs:        DEFAULT_LOG_DIR,
-		OverlayNetwork: AUTO_OAK_NETWORK,
+		AppLogs:        DefaultLogDir,
+		OverlayNetwork: AutoOakNetwork,
 		PublicIp:       false,
 		NetPort:        0,
 		Virtualizations: []Virtualization{

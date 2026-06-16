@@ -32,7 +32,7 @@ func statusNodeEngine() error {
 	// Define the command and arguments
 	execCommandWithOutput("systemctl", "status", "nodeengine", "--no-pager")
 
-	if confFile.OverlayNetwork == config.AUTO_OAK_NETWORK {
+	if confFile.OverlayNetwork == config.AutoOakNetwork {
 		//show net status if default cni active
 		execCommandWithOutput("NetManager", "status")
 	}

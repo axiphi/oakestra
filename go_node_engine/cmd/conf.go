@@ -150,7 +150,7 @@ var (
 		Use:   "auto",
 		Short: "Enable auto overlay network startup",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return setNetwork(config.AUTO_OAK_NETWORK)
+			return setNetwork(config.AutoOakNetwork)
 		},
 	}
 	enableManualNetwork = &cobra.Command{
