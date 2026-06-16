@@ -156,7 +156,7 @@ func SetNodeId(id string) {
 }
 
 func getIp() string {
-	conf, err := config.GetConfFileManager().Get()
+	conf, err := config.Read()
 	if err != nil {
 		logger.ErrorLogger().Fatal(err)
 	}

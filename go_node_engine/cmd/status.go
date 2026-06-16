@@ -24,8 +24,7 @@ var (
 )
 
 func statusNodeEngine() error {
-	configManager := config.GetConfFileManager()
-	confFile, err := configManager.Get()
+	confFile, err := config.Read()
 	if err != nil {
 		return err
 	}

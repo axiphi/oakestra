@@ -64,40 +64,34 @@ type CSIDriverType struct {
 	Endpoint string `json:"csi_driver_endpoint"`
 }
 
-type ConfFileManager interface {
-	Get() (ConfFile, error)
-	Write(ConfFile) error
-}
-
-func GetConfFileManager() ConfFileManager {
-	f := ConfFile{}
-	return &f
-}
-
-func (c *ConfFile) Get() (ConfFile, error) {
+// Read loads the node configuration from /etc/oakestra/conf.json. If the file
+// is missing or empty it writes and returns the default configuration.
+func Read() (ConfFile, error) {
 	data, err := os.ReadFile(confPath)
 	if errors.Is(err, os.ErrNotExist) || (err == nil && len(data) == 0) {
 		logger.InfoLogger().Printf("Config file missing or empty, using default configuration")
 		def := GenDefaultConfig()
-		return def, c.Write(def)
+		return def, Write(def)
 	}
 	if err != nil {
-		return *c, err
+		return ConfFile{}, err
 	}
 
 	var clusterConf ConfFile
 	if err := json.Unmarshal(data, &clusterConf); err != nil {
 		logger.ErrorLogger().Printf("Error reading configuration: %v, resetting the file\n", err)
-		if resetErr := c.Write(GenDefaultConfig()); resetErr != nil {
-			return *c, resetErr
+		if resetErr := Write(GenDefaultConfig()); resetErr != nil {
+			return ConfFile{}, resetErr
 		}
-		return *c, err
+		return ConfFile{}, err
 	}
 	return clusterConf, nil
 }
 
-func (c *ConfFile) Write(new ConfFile) error {
-	data, err := json.Marshal(new)
+// Write persists the given node configuration to /etc/oakestra/conf.json,
+// overwriting any existing content.
+func Write(conf ConfFile) error {
+	data, err := json.Marshal(conf)
 	if err != nil {
 		return err
 	}

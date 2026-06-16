@@ -33,9 +33,8 @@ func main() {
 		return
 	}
 
-	configManager := config.GetConfFileManager()
 	var err error
-	configs, err = configManager.Get()
+	configs, err = config.Read()
 	if err != nil {
 		logger.ErrorLogger().Fatal(err)
 	}
