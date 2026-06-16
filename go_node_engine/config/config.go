@@ -70,7 +70,7 @@ func Read() (ConfFile, error) {
 	data, err := os.ReadFile(confPath)
 	if errors.Is(err, os.ErrNotExist) || (err == nil && len(data) == 0) {
 		logger.InfoLogger().Printf("Config file missing or empty, using default configuration")
-		def := GenDefaultConfig()
+		def := Default()
 		return def, Write(def)
 	}
 	if err != nil {
@@ -80,7 +80,7 @@ func Read() (ConfFile, error) {
 	var clusterConf ConfFile
 	if err := json.Unmarshal(data, &clusterConf); err != nil {
 		logger.ErrorLogger().Printf("Error reading configuration: %v, resetting the file\n", err)
-		if resetErr := Write(GenDefaultConfig()); resetErr != nil {
+		if resetErr := Write(Default()); resetErr != nil {
 			return ConfFile{}, resetErr
 		}
 		return ConfFile{}, err
@@ -102,7 +102,9 @@ func Write(conf ConfFile) error {
 	return os.WriteFile(confPath, data, 0644)
 }
 
-func GenDefaultConfig() ConfFile {
+// Default returns the built-in node configuration used when no config file
+// exists yet or an existing one cannot be parsed.
+func Default() ConfFile {
 	return ConfFile{
 		ConfVersion:    "1.0",
 		ClusterAddress: "0.0.0.0",

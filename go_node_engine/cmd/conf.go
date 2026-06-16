@@ -233,7 +233,7 @@ var (
 )
 
 func defaultConfig() error {
-	clusterConf := config.GenDefaultConfig()
+	clusterConf := config.Default()
 	return config.Write(clusterConf)
 }
 
