@@ -3,13 +3,17 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"go_node_engine/logger"
 	"os"
+	"strings"
 )
 
 const (
 	DEFAULT_LOG_DIR  = "/tmp"
 	AUTO_OAK_NETWORK = "default"
+	PUBLIC_IP_FALSE  = PublicIPMode("false")
+	PUBLIC_IP_AUTO   = PublicIPMode("auto")
 
 	confDir  = "/etc/oakestra"
 	confPath = "/etc/oakestra/conf.json"
@@ -32,13 +36,76 @@ type ConfFile struct {
 	ClusterPort     int              `json:"cluster_port"`
 	AppLogs         string           `json:"app_logs"`
 	OverlayNetwork  string           `json:"overlay_network"`
-	PublicIp        bool             `json:"public_ip"`
+	PublicIp        PublicIPMode     `json:"public_ip"`
 	NetPort         int              `json:"overlay_network_port"`
 	CertFile        string           `json:"mqtt_cert_file"`
 	KeyFile         string           `json:"mqtt_key_file"`
 	Addons          []Addon          `json:"addons"`
 	Virtualizations []Virtualization `json:"virtualizations"`
 	CSIDrivers      []CSIDriverType  `json:"csi_drivers"`
+}
+
+type PublicIPMode string
+
+func ParsePublicIPMode(mode string) PublicIPMode {
+	normalized := strings.TrimSpace(strings.ToLower(mode))
+	switch normalized {
+	case "", string(PUBLIC_IP_FALSE):
+		return PUBLIC_IP_FALSE
+	case string(PUBLIC_IP_AUTO), "true":
+		return PUBLIC_IP_AUTO
+	default:
+		return PublicIPMode(strings.TrimSpace(mode))
+	}
+}
+
+func (m PublicIPMode) normalized() string {
+	return strings.TrimSpace(strings.ToLower(string(m)))
+}
+
+func (m PublicIPMode) IsDisabled() bool {
+	normalized := m.normalized()
+	return normalized == "" || normalized == string(PUBLIC_IP_FALSE)
+}
+
+func (m PublicIPMode) IsAuto() bool {
+	normalized := m.normalized()
+	return normalized == string(PUBLIC_IP_AUTO) || normalized == "true"
+}
+
+func (m PublicIPMode) Value() string {
+	normalized := m.normalized()
+	if normalized == "" || normalized == string(PUBLIC_IP_FALSE) {
+		return string(PUBLIC_IP_FALSE)
+	}
+	if normalized == string(PUBLIC_IP_AUTO) || normalized == "true" {
+		return string(PUBLIC_IP_AUTO)
+	}
+	return strings.TrimSpace(string(m))
+}
+
+func (m PublicIPMode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.Value())
+}
+
+func (m *PublicIPMode) UnmarshalJSON(data []byte) error {
+	var boolMode bool
+	if err := json.Unmarshal(data, &boolMode); err == nil {
+		if boolMode {
+			*m = PUBLIC_IP_AUTO
+			return nil
+		}
+		*m = PUBLIC_IP_FALSE
+		return nil
+	}
+
+	var stringMode string
+	if err := json.Unmarshal(data, &stringMode); err == nil {
+		*m = ParsePublicIPMode(stringMode)
+		return nil
+	}
+
+	return fmt.Errorf("invalid public_ip mode: expected boolean or string, got %s", data)
 }
 
 type Addon struct {
@@ -116,7 +183,7 @@ func GenDefaultConfig() ConfFile {
 		ClusterSSL:     false,
 		AppLogs:        DEFAULT_LOG_DIR,
 		OverlayNetwork: AUTO_OAK_NETWORK,
-		PublicIp:       false,
+		PublicIp:       PUBLIC_IP_FALSE,
 		NetPort:        0,
 		Virtualizations: []Virtualization{
 			{
