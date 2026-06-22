@@ -1,4 +1,4 @@
-package virtualization
+package containerd
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"go_node_engine/model"
 	"go_node_engine/model/gpu"
 	"go_node_engine/requests"
+	"go_node_engine/util/taskid"
+	"go_node_engine/virtualization/internal/logutils"
 	virtrt "go_node_engine/virtualization/internal/runtime"
 	"iter"
 	"maps"
@@ -151,10 +153,10 @@ func (r *ContainerRuntime) Stop() {
 	}
 	r.channelLock.Unlock()
 
-	for _, taskid := range taskIDs {
-		err := r.Undeploy(extractSnameFromTaskID(taskid), extractInstanceNumberFromTaskID(taskid))
+	for _, taskId := range taskIDs {
+		err := r.Undeploy(taskid.ExtractServiceName(taskId), taskid.ExtractInstanceNumber(taskId))
 		if err != nil {
-			logger.ErrorLogger().Printf("Unable to undeploy %s, error: %v", taskid, err)
+			logger.ErrorLogger().Printf("Unable to undeploy %s, error: %v", taskId, err)
 		}
 	}
 	waitDone := make(chan struct{})
@@ -213,15 +215,15 @@ func (r *ContainerRuntime) Deploy(service model.Service, statusChangeNotificatio
 		}
 	}
 
-	taskid := genTaskID(service.Sname, service.Instance)
+	taskId := taskid.Generate(service.Sname, service.Instance)
 	startupChannel := make(chan bool)
 	errorChannel := make(chan error)
 	killChannel := make(chan bool, 1)
 
 	r.channelLock.Lock()
-	_, alreadyDeployed := r.killQueue[taskid]
+	_, alreadyDeployed := r.killQueue[taskId]
 	if !alreadyDeployed {
-		r.killQueue[taskid] = &killChannel
+		r.killQueue[taskId] = &killChannel
 	}
 	r.channelLock.Unlock()
 
@@ -251,9 +253,9 @@ func (r *ContainerRuntime) Deploy(service model.Service, statusChangeNotificatio
 
 // Undeploy undeploys a service
 func (r *ContainerRuntime) Undeploy(service string, instance int) error {
-	taskid := genTaskID(service, instance)
+	taskId := taskid.Generate(service, instance)
 	r.channelLock.RLock()
-	ch, found := r.killQueue[taskid]
+	ch, found := r.killQueue[taskId]
 	r.channelLock.RUnlock()
 	if found && ch != nil {
 		*ch <- true
@@ -275,7 +277,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 
 	defer r.wg.Done()
 
-	taskid := genTaskID(service.Sname, service.Instance)
+	taskId := taskid.Generate(service.Sname, service.Instance)
 	hostname := fmt.Sprintf("instance-%d", service.Instance)
 	service.StatusDetail = "Container is starting up"
 
@@ -285,7 +287,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 		errorchan <- err
 		r.channelLock.Lock()
 		defer r.channelLock.Unlock()
-		delete(r.killQueue, taskid)
+		delete(r.killQueue, taskId)
 	}
 
 	// Container options
@@ -304,7 +306,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 		}
 	}
 	// -- add custom snapshotter
-	containerOpts = append(containerOpts, containerd.WithNewSnapshot(fmt.Sprintf("%s-snapshotter", taskid), image))
+	containerOpts = append(containerOpts, containerd.WithNewSnapshot(fmt.Sprintf("%s-snapshotter", taskId), image))
 	// -- add image
 	containerOpts = append(containerOpts, containerd.WithImage(image))
 
@@ -349,7 +351,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 		specOpts = append(specOpts, withCSIVolumeMounts(mountedVolumes))
 		// Store mounted volumes so they can be cleaned up when the container stops.
 		r.channelLock.Lock()
-		r.mountedVolumes[taskid] = mountedVolumes
+		r.mountedVolumes[taskId] = mountedVolumes
 		r.channelLock.Unlock()
 	}
 	// ---- add resolve file with default google dns
@@ -366,7 +368,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	// Create the container
 	container, err := r.containerClient.NewContainer(
 		ctx,
-		taskid,
+		taskId,
 		containerOpts...,
 	)
 	if err != nil {
@@ -375,7 +377,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	}
 
 	//	start task with /tmp/taskid default log directory
-	file, err := os.OpenFile(fmt.Sprintf("%s/%s", model.GetNodeInfo().LogDirectory, taskid), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := os.OpenFile(fmt.Sprintf("%s/%s", model.GetNodeInfo().LogDirectory, taskId), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		revert(err)
 		return
@@ -440,7 +442,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 			_ = requests.DetachNetworkFromTask(service.Sname, service.Instance)
 		}
 		r.channelLock.Lock()
-		delete(r.killQueue, taskid)
+		delete(r.killQueue, taskId)
 		r.channelLock.Unlock()
 		_ = r.removeContainer(container)
 		statusChangeNotificationHandler(service)
@@ -459,14 +461,14 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	}
 
 	r.channelLock.Lock()
-	delete(r.killQueue, taskid)
+	delete(r.killQueue, taskId)
 	r.channelLock.Unlock()
 	_ = r.removeContainer(container)
 
 	// CSI teardown: unpublish + unstage volumes after the container has been removed.
 	r.channelLock.Lock()
-	mv, hasMounts := r.mountedVolumes[taskid]
-	delete(r.mountedVolumes, taskid)
+	mv, hasMounts := r.mountedVolumes[taskId]
+	delete(r.mountedVolumes, taskId)
 	r.channelLock.Unlock()
 	if hasMounts {
 		csi.UnmountVolumes(mv)
@@ -567,10 +569,10 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Cpu:      fmt.Sprintf("%f", cpuUsage),
 				Memory:   fmt.Sprintf("%f", memUsage),
 				Disk:     fmt.Sprintf("%d", usage.Size),
-				Sname:    extractSnameFromTaskID(container.ID()),
+				Sname:    taskid.ExtractServiceName(container.ID()),
 				Runtime:  string(model.CONTAINER_RUNTIME),
-				Logs:     getLogs(container.ID()),
-				Instance: extractInstanceNumberFromTaskID(container.ID()),
+				Logs:     logutils.GetLogs(container.ID()),
+				Instance: taskid.ExtractInstanceNumber(container.ID()),
 			})
 		}
 		//NOTIFY WITH THE CURRENT CONTAINERS STATUS
@@ -732,32 +734,6 @@ func killTask(ctx context.Context, task containerd.Task, container containerd.Co
 
 	logger.ErrorLogger().Printf("Task %s terminated", task.ID())
 	return nil
-}
-
-func extractSnameFromTaskID(taskid string) string {
-	sname := taskid
-	index := strings.LastIndex(taskid, ".instance")
-	if index > 0 {
-		sname = taskid[0:index]
-	}
-	return sname
-}
-
-func extractInstanceNumberFromTaskID(taskid string) int {
-	instance := 0
-	separator := ".instance"
-	index := strings.LastIndex(taskid, separator)
-	if index > 0 {
-		number, err := strconv.Atoi(taskid[index+len(separator)+1:])
-		if err == nil {
-			instance = number
-		}
-	}
-	return instance
-}
-
-func genTaskID(sname string, instancenumber int) string {
-	return fmt.Sprintf("%s.instance.%d", sname, instancenumber)
 }
 
 // getContainerByTaskID returns the containerd.Container associated with the given task ID (which is in the format sname.instance.instanceNumber).
