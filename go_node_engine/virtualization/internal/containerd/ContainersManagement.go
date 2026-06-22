@@ -793,7 +793,7 @@ var invalidContainerIdChars = regexp.MustCompile("[^a-zA-Z0-9._-]")
 // convertTaskIdToContainerId converts the given taskId of an instance to an ID that can be used to containerd container.
 // The following requirements are fulfilled by the resulting container id:
 //   - The maximum length for container ids is 76 characters (see https://github.com/containerd/containerd/blob/main/pkg/identifiers/validate.go).
-//   - Machine names can only contain characters matching this regex "[A-Za-z0-9]" or "[._-]" (inverse in invalidContainerIdChars).
+//   - Container IDs can only contain characters matching this regex "[A-Za-z0-9]" or "[._-]" (inverse in invalidContainerIdChars).
 //     To make sure this requirement is fulfilled, other characters are not taken over from the taskId.
 //   - For more consistency in unit names, all uppercase characters in the taskId are converted to lowercase
 //     when taken over into the result.
