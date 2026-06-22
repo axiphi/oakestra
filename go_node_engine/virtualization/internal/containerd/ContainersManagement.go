@@ -2,6 +2,8 @@ package containerd
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base32"
 	"fmt"
 	"go_node_engine/csi"
 	"go_node_engine/logger"
@@ -15,6 +17,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,6 +75,8 @@ const CONTAINERD_CONFIG_PATH = "/etc/containerd/config.toml"
 
 // Max container cleanup duration
 const CLEANUP_TIMEOUT = 5 * time.Second
+
+const TASK_ID_LABEL = "io.oakestra.taskid"
 
 // GetContainerdRuntime returns the container runtime client
 func newContainerdRuntime(_ virtrt.RuntimeInfo) virtrt.Runtime {
@@ -365,10 +370,12 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	// -- add oci SpecOpts to containerOpts
 	containerOpts = append(containerOpts, ctd.WithNewSpec(specOpts...))
 
+	containerOpts = append(containerOpts, containerd.WithAdditionalContainerLabels(map[string]string{TASK_ID_LABEL: taskid}))
+
 	// Create the container
 	container, err := r.containerClient.NewContainer(
 		ctx,
-		taskId,
+		convertTaskIdToContainerId(taskId),
 		containerOpts...,
 	)
 	if err != nil {
@@ -412,6 +419,9 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	// if Overlay mode is active then attach network to the task
 	if model.GetNodeInfo().Overlay {
 		taskpid := int(task.Pid())
+		// In the network attachment code path below, we don't need to implement any special handling
+		// for the container ID, even though it's different from taskId, because of convertTaskIdToContainerId.
+		// That is, because the network attachment is pid-based (via taskpid param).
 		err = requests.AttachNetworkToTask(taskpid, service.Sname, service.Instance, service.Ports)
 		if err != nil {
 			logger.ErrorLogger().Printf("Unable to attach network interface to the task: %v", err)
@@ -559,6 +569,12 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				continue
 			}
 
+			taskId, ok := containerMetadata.Labels[TASK_ID_LABEL]
+			if !ok {
+				logger.WarnLogger().Printf("Unable to fetch task id for container %s", container.ID())
+				continue
+			}
+
 			currentsnapshotter := r.containerClient.SnapshotService(containerMetadata.Snapshotter)
 			usage, err := currentsnapshotter.Usage(r.ctx, containerMetadata.SnapshotKey)
 			if err != nil {
@@ -569,11 +585,11 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Cpu:      fmt.Sprintf("%f", cpuUsage),
 				Memory:   fmt.Sprintf("%f", memUsage),
 				Disk:     fmt.Sprintf("%d", usage.Size),
-				Sname:    taskid.ExtractServiceName(container.ID()),
+				Sname:    taskid.extractSnameFromTaskID(taskId),
 				Runtime:  string(model.CONTAINER_RUNTIME),
-				Logs:     logutils.GetLogs(container.ID()),
-				Instance: taskid.ExtractInstanceNumber(container.ID()),
-				Status:   r.taskStatus(task),
+				Logs:     logutils.GetLogs(taskId),
+				Instance: taskid.ExtractInstanceNumber(taskId),
+                Status:   r.taskStatus(task),
 			})
 		}
 		resourceList = append(resourceList, model.InstantiatingResources(model.CONTAINER_RUNTIME)...)
@@ -767,6 +783,35 @@ func killTask(ctx context.Context, task ctd.Task, container ctd.Container) error
 
 	logger.ErrorLogger().Printf("Task %s terminated", task.ID())
 	return nil
+}
+
+const containerIdMaxLen = 72
+
+var containerIdHashEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+var invalidContainerIdChars = regexp.MustCompile("[^a-zA-Z0-9._-]")
+
+// convertTaskIdToContainerId converts the given taskId of an instance to an ID that can be used to containerd container.
+// The following requirements are fulfilled by the resulting container id:
+//   - The maximum length for container ids is 76 characters (see https://github.com/containerd/containerd/blob/main/pkg/identifiers/validate.go).
+//   - Machine names can only contain characters matching this regex "[A-Za-z0-9]" or "[._-]" (inverse in invalidContainerIdChars).
+//     To make sure this requirement is fulfilled, other characters are not taken over from the taskId.
+//   - For more consistency in unit names, all uppercase characters in the taskId are converted to lowercase
+//     when taken over into the result.
+//   - To ensure generated container IDs are still unique after all the steps taken above,
+//     part of the base-32 encoded hash of the original taskId is appended to the result as ".${hash}".
+func convertTaskIdToContainerId(taskId string) string {
+	hashBytes := sha256.Sum256([]byte(taskId))
+	hashString := containerIdHashEncoding.EncodeToString(hashBytes[:])
+	// At this point hashString is 52 characters long which is too long to be useful, so we truncate it.
+	// This should still make collisions very unlikely.
+	hashString = hashString[:20]
+
+	containerIdSuffix := "." + hashString
+
+	safeTaskId := strings.ToLower(invalidContainerIdChars.ReplaceAllString(taskId, ""))
+	safeTaskId = safeTaskId[:min(containerIdMaxLen-len(containerIdSuffix), len(safeTaskId))]
+
+	return safeTaskId + containerIdSuffix
 }
 
 // gpuInfo holds GPU device information for sorting
