@@ -1,279 +1,164 @@
-import os
-from flask import Flask, request
-from flask_socketio import SocketIO, emit
 import json
-import socketio
-import sys
-from apscheduler.schedulers.background import BackgroundScheduler
-import time
-from prometheus_client import start_http_server
+import logging
+import os
+import socket
 import threading
-from mongodb_client import mongo_init, mongo_upsert_node, mongo_find_job_by_system_id, \
-    mongo_update_job_status, mongo_find_node_by_name, mongo_find_job_by_id, mongo_remove_job_instance, \
-    mongo_create_new_job_instance
-from mqtt_client import mqtt_init, mqtt_publish_edge_deploy, mqtt_publish_edge_delete
-from cluster_scheduler_requests import scheduler_request_deploy, scheduler_request_replicate, scheduler_request_status
+import time
+
+import config
+import grpc
+from apscheduler.schedulers.background import BackgroundScheduler
+from blueprints import blueprints
+from clients.mqtt_client import mqtt_init
+from clients.my_prometheus_client import prometheus_init_gauge_metrics
 from cm_logging import configure_logging
-from system_manager_requests import send_aggregated_info_to_sm, re_deploy_dead_services_routine
-from analyzing_workers import looking_for_dead_workers
-from my_prometheus_client import prometheus_init_gauge_metrics, prometheus_set_metrics
-from network_plugin_requests import *
-import service_operations
-
-MY_PORT = os.environ.get('MY_PORT')
-
-MY_CHOSEN_CLUSTER_NAME = os.environ.get('CLUSTER_NAME')
-MY_CLUSTER_LOCATION = os.environ.get('CLUSTER_LOCATION')
-NETWORK_COMPONENT_PORT = os.environ.get('CLUSTER_SERVICE_MANAGER_PORT')
-MY_ASSIGNED_CLUSTER_ID = None
-
-SYSTEM_MANAGER_ADDR = 'http://' + os.environ.get('SYSTEM_MANAGER_URL') + ':' + os.environ.get('SYSTEM_MANAGER_PORT')
+from ext_requests.system_manager_requests import (
+    re_deploy_dead_jobs_routine,
+    send_aggregated_info_to_sm,
+)
+from flask import Flask
+from flask_cors import CORS
+from flask_smorest import Api
+from flask_socketio import SocketIO
+from flask_swagger_ui import get_swaggerui_blueprint
+from prometheus_client import start_http_server
+from proto.clusterRegistration_pb2 import CS1Message, CS2Message, KeyValue, SC1Message, SC2Message
+from proto.clusterRegistration_pb2_grpc import register_clusterStub
 
 my_logger = configure_logging()
-
+logger = logging.getLogger("cluster_manager")
 app = Flask(__name__)
 
-# socketioserver = SocketIO(app, async_mode='eventlet', logger=, engineio_logger=logging)
-socketioserver = SocketIO(app, logger=True, engineio_logger=True)
+app.config["OPENAPI_VERSION"] = "3.0.2"
+app.config["API_TITLE"] = "Oakestra root api"
+app.config["API_VERSION"] = "v1"
+app.config["OPENAPI_URL_PREFIX"] = "/docs"
+app.config["JWT_ALGORITHM"] = "RS256"
+app.logger = logger
 
-mongo_init(app)
+socketioserver = SocketIO(app, logger=True, engineio_logger=True)
+api = Api(app, spec_kwargs={"x-internal-id": "1", "host": "oakestra.io"})
+cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 mqtt_init(app)
 
-sio = socketio.Client()
+BACKGROUND_JOB_INTERVAL = 15
 
-BACKGROUND_JOB_INTERVAL = 5
+# Register apis
+for bp in blueprints:
+    api.register_blueprint(bp)
 
-
-# ................... REST API Endpoints ...............#
-# ......................................................#
-
-
-@app.route('/')
-def hello_world():
-    app.logger.info('Hello World Request')
-    app.logger.info('Processing default request')
-    return "Hello, World! This is Cluster Manager's REST API"
-
-
-@app.route('/status')
-def status():
-    app.logger.info('Incoming Request /status')
-    return "ok", 200
-
-
-@app.route('/api/deploy/<system_job_id>/<instance_number>', methods=['GET', 'POST'])
-def deploy_task(system_job_id, instance_number):
-    app.logger.info('Incoming Request /api/deploy')
-    job = request.json  # contains job_id and job_description
-
-    try:
-        service_operations.deploy_service(job, system_job_id, instance_number)
-    except Exception as e:
-        return "", 500
-
-    return 200
-
-
-@app.route('/api/result/<system_job_id>/<instance_number>', methods=['POST'])
-def get_scheduler_result_and_propagate_to_edge(system_job_id, instance_number):
-    # print(request)
-    app.logger.info('Incoming Request /api/result - received cluster_scheduler result')
-    data = request.json  # get POST body
-    app.logger.info(data)
-
-    if data.get('found',False):
-        resulting_node_id = data.get('node').get('_id')
-
-        mongo_update_job_status(system_job_id, instance_number, 'NODE_SCHEDULED', data.get('node'))
-        job = mongo_find_job_by_system_id(system_job_id)
-
-        # Inform network plugin about the deployment
-        network_notify_deployment(str(job['system_job_id']), job)
-
-        # Publish job
-        mqtt_publish_edge_deploy(resulting_node_id, job, instance_number)
-    else:
-        mongo_update_job_status(system_job_id, instance_number, 'NO_WORKER_CAPACITY', None)
-    return "ok"
-
-
-@app.route('/api/delete/<system_job_id>/<instance_number>')
-def delete_service(system_job_id, instance_number):
-    """
-    find service in db and ask corresponding worker to delete task,
-    instance_number -1 undeploy all known instances
-    """
-    app.logger.info('Incoming Request /api/delete/ - to delete task...')
-
-    try:
-        service_operations.delete_service(system_job_id, instance_number)
-    except Exception as e:
-        return "", 500
-
-    return "ok", 200
-
-
-# ................ Scheduler Test ......................#
-# ......................................................#
-
-
-@app.route('/api/test/scheduler', methods=['GET'])
-def scheduler_test():
-    app.logger.info('Incoming Request /api/jobs - to get all jobs')
-    return scheduler_request_status()
-
-
-# ..................... REST handshake .................#
-# ......................................................#
-
-@app.route('/api/node/register', methods=['POST'])
-def http_node_registration():
-    app.logger.info('Incoming Request /api/node/register - to get all jobs')
-    data = request.json  # get POST body
-    registration_token = data.get("token")
-    # TODO: check and generate tokens
-    client_id = mongo_upsert_node({"ip": request.remote_addr, "node_info": data})
-    response = {
-        "id": str(client_id),
-        "MQTT_BROKER_PORT": os.environ.get('MQTT_BROKER_PORT')
-    }
-    return response, 200
-
-
-# ...... Websocket INIT Handling with edge nodes .......#
-# ......................................................#
-
-@socketioserver.on('connect', namespace='/init')
-def on_connect():
-    app.logger.info('Websocket - Client connected: {}'.format(request.remote_addr))
-    emit('sc1', {'hello-edge': 'please send your node info'}, namespace='/init')
-
-
-@socketioserver.on('cs1', namespace='/init')
-def handle_init_worker(message):
-    app.logger.info('Websocket - Received Edge_to_Cluster_Manager_1: {}'.format(request.remote_addr))
-    app.logger.info(message)
-
-    client_id = mongo_upsert_node({"ip": request.remote_addr, "node_info": json.loads(message)})
-
-    init_packet = {
-        "id": str(client_id),
-        "MQTT_BROKER_PORT": os.environ.get('MQTT_BROKER_PORT')
-    }
-
-    # create ID and send it along with MQTT_Broker info to the client. save id into database
-    emit('sc2', json.dumps(init_packet), namespace='/init')
-
-    # no report here because regularly reports are sent anyways over mqtt.
-    # cloud_request_incr_node(MY_ASSIGNED_CLUSTER_ID)  # report to system-manager about new edge node
-
-
-@socketioserver.on('disconnect', namespace='/init')
-def test_disconnect():
-    app.logger.info('Websocket - Client disconnected')
-
-
-# ........... BEGIN register to System Manager .........#
-# ......................................................#
-
-@sio.on('sc1', namespace='/register')
-def handle_init_greeting(jsonarg):
-    app.logger.info('Websocket - received System_Manager_to_Cluster_Manager_1 : ' + str(jsonarg))
-    data = {
-        'manager_port': MY_PORT,
-        'network_component_port': NETWORK_COMPONENT_PORT,
-        'cluster_name': MY_CHOSEN_CLUSTER_NAME,
-        'cluster_info': {},
-        'cluster_location': MY_CLUSTER_LOCATION
-    }
-    time.sleep(1)  # Wait to Avoid Race Condition!
-
-    sio.emit('cs1', data, namespace='/register')
-    app.logger.info('Websocket - Cluster Info sent. (Cluster_Manager_to_System_Manager)')
-
-
-@sio.on('sc2', namespace='/register')
-def handle_init_final(jsonarg):
-    app.logger.info('Websocket - received System_Manager_to_Cluster_Manager_2:' + str(jsonarg))
-    data = json.loads(jsonarg)
-
-    app.logger.info("My received ID is: {}\n\n\n".format(data['id']))
-
-    global MY_ASSIGNED_CLUSTER_ID
-    MY_ASSIGNED_CLUSTER_ID = data['id']
-
-    sio.disconnect()
-    if MY_ASSIGNED_CLUSTER_ID is not None:
-        app.logger.info('Received ID. Go ahead with Background Jobs')
-        prometheus_init_gauge_metrics(MY_ASSIGNED_CLUSTER_ID)
-        background_job_send_aggregated_information_to_sm()
-    else:
-        app.logger.info('No ID received.')
-
-
-@sio.event()
-def connect():
-    app.logger.info("Websocket - I'm connected to System_Manager!")
-
-
-@sio.event()
-def connect_error(m):
-    app.logger.info("Websocket connection failed with System_Manager!")
-
-
-@sio.event()
-def error(sid, data):
-    app.logger.info('>>>> Websocket error with System_Manager <<<<< ')
-
-
-@sio.event()
-def disconnect(m):
-    app.logger.info("Websocket disconnected with SM!")
-
-
-def init_cm_to_sm():
-    app.logger.info('Connecting to System_Manager...')
-    try:
-        sio.connect(SYSTEM_MANAGER_ADDR + '/register', namespaces=['/register'])
-    except Exception as e:
-        app.logger.error('SocketIO - Connection Establishment with System Manager failed!')
-    time.sleep(1)
-
-
-# ......... FINISH - register at System Manager ........#
-# ......................................................#
+# Swagger docs
+SWAGGER_URL = "/api/docs"
+API_URL = "/docs/openapi.json"
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={"app_name": "Oakestra root orchestrator"},
+)
+app.register_blueprint(swaggerui_blueprint)
 
 
 def background_job_send_aggregated_information_to_sm():
-    app.logger.info("Set up Background Jobs...")
+    logger.info("Set up Background Jobs...")
     scheduler = BackgroundScheduler()
-    job_send_info = scheduler.add_job(
+    # job_send_info
+    scheduler.add_job(
         send_aggregated_info_to_sm,
-        'interval',
+        "interval",
         seconds=BACKGROUND_JOB_INTERVAL,
-        kwargs={'my_id': MY_ASSIGNED_CLUSTER_ID,
-                'time_interval': 2 * BACKGROUND_JOB_INTERVAL})
-    job_dead_nodes = scheduler.add_job(
-        looking_for_dead_workers,
-        'interval',
-        seconds=BACKGROUND_JOB_INTERVAL,
-        kwargs={'interval': 2 * BACKGROUND_JOB_INTERVAL})
-    job_re_deploy_dead_jobs = scheduler.add_job(
-        re_deploy_dead_services_routine,
-        'interval',
-        seconds=BACKGROUND_JOB_INTERVAL)
+        kwargs={
+            "my_id": config.MY_ASSIGNED_CLUSTER_ID,
+            "time_interval": 2 * BACKGROUND_JOB_INTERVAL,
+        },
+    )
+    # job_re_deploy_dead_jobs
+    scheduler.add_job(re_deploy_dead_jobs_routine, "interval", seconds=BACKGROUND_JOB_INTERVAL)
 
     scheduler.start()
 
 
-if __name__ == '__main__':
-    # socketioserver.run(app, debug=True, host='0.0.0.0', port=MY_PORT)
-    # app.run(debug=True, host='0.0.0.0', port=MY_PORT)
+# ........... BEGIN register to System Manager with gRPC........ .........#
+# ........................................................................#
 
-    start_http_server(10001)  # start prometheus server
 
+def register_with_system_manager():
+    """Registers this cluster manager with the system manager using gRPC."""
+
+    if not config.MY_CLUSTER_ADDRESS:
+        raise RuntimeError(
+            "CLUSTER_ADDRESS env var is not set. The root orchestrator needs the "
+            "reachable IP of this cluster manager. Set CLUSTER_ADDRESS to the "
+            "IP/hostname the root can use to reach this host."
+        )
+
+    with grpc.insecure_channel(config.SYSTEM_MANAGER_ADDR) as channel:
+        stub = register_clusterStub(channel)
+
+        # Send initial greeting (CS1Message)
+        greeting = CS1Message()
+        greeting.hello_service_manager = json.dumps(
+            {
+                "cluster_name": config.MY_CHOSEN_CLUSTER_NAME,
+                "location": config.MY_CLUSTER_LOCATION,
+            }
+        )
+        sc1: SC1Message = stub.handle_init_greeting(
+            greeting, wait_for_ready=True, timeout=config.GRPC_REQUEST_TIMEOUT
+        )
+        logger.info(
+            "Received greeting message from System Manager: " + str(sc1.hello_cluster_manager)
+        )
+
+        # Send cluster details (CS2Message)
+        details = CS2Message()
+        details.manager_port = int(config.MY_PORT)
+        details.network_component_port = int(config.NETWORK_COMPONENT_PORT)
+        details.cluster_name = config.MY_CHOSEN_CLUSTER_NAME
+        details.cluster_location = config.MY_CLUSTER_LOCATION
+        details.cluster_address = config.MY_CLUSTER_ADDRESS
+        details.cluster_info.append(KeyValue())
+
+        sc2: SC2Message = stub.handle_init_final(
+            details, wait_for_ready=True, timeout=config.GRPC_REQUEST_TIMEOUT
+        )
+
+        if not sc2.id:
+            raise RuntimeError("Registration failed: no cluster id returned by root")
+
+        config.MY_ASSIGNED_CLUSTER_ID = sc2.id
+        logger.info(f"Cluster ID received: {sc2.id}. Go ahead with Background Jobs")
+        prometheus_init_gauge_metrics(config.MY_ASSIGNED_CLUSTER_ID, app.logger)
+        background_job_send_aggregated_information_to_sm()
+
+
+# ........... FINISH - register to System Manager with gRPC.................#
+# ..........................................................................#
+
+start_http_server(10001)  # start prometheus server
+
+
+def _register_in_background():
+    # The root probes GET /api/cluster/status on this cluster_manager during
+    # registration. That probe can only succeed once gunicorn's worker has
+    # entered its accept loop, which doesn't happen until load_wsgi (i.e. this
+    # module's top-level import) returns. So we MUST NOT block the import on
+    # the gRPC call — otherwise the root's probe deadlocks against our own
+    # startup. Give gunicorn a moment to start serving, then register. On
+    # failure, exit the worker so gunicorn respawns it and tries again.
+    time.sleep(2)
+    try:
+        register_with_system_manager()
+    except Exception:
+        logger.exception("Cluster registration failed; exiting worker for restart")
+        os._exit(1)
+
+
+threading.Thread(target=_register_in_background, daemon=True).start()
+
+if __name__ == "__main__":
     import eventlet
 
-    init_cm_to_sm()
-    eventlet.wsgi.server(eventlet.listen(('0.0.0.0', int(MY_PORT))), app, log=my_logger)  # see README for logging notes
+    eventlet.wsgi.server(
+        eventlet.listen(("::", int(config.MY_PORT)), family=socket.AF_INET6), app, log=my_logger
+    )  # see README for logging notes

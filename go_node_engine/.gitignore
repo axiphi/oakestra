@@ -1,2 +1,6 @@
 .idea
 bin/
+
+third_party/**/dist/
+
+!oakestra.logrotate

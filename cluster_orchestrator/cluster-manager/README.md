@@ -10,33 +10,39 @@ The Cluster Manager is a component in the Cluster Orchestrator. Edge nodes regis
 - provides `/init` endpoint (which is upgraded to websocket) and handles initialization process with client
 
 
-## Incoming Endpoints which can be used e.g. by the System Manager
+## Incoming Endpoints which can be used by the System Manager
 
-- /api/init to register worker nodes
-- /api/deploy to ask the Cluster Scheduler for a job placement and to contact the target worker node
-- /api/delete to delete a job in its cluster
-- /api/move to migrate jobs from a node to another node within the cluster
-- /api/replicate to scale up or down the number of microservices within the cluster
-
+- `/api/service/<system_job_id>/<instance_number>`  supports POST and DELETE to add or remove a service instance from a cluster
 
 ## Outgoing Endpoints to other components
 
-- Cluster Manager registers at System Manager  (Websocket register phase)
+- Cluster Manager registers at System Manager  
 - Cluster Manager asks the Cluster Scheduler for placement calculations
 - Cluster Manager reports aggregated information to the System Manager
 - Cluster Manager pulls edge node information from MQTT Broker
 
-## Start the Cluster Manager
+## Start the Cluster Manager manually
 
-Please start the Cluster Manager with `./start-up.sh`.
-A virtualenv will be started and cluster-manager will start up.
+Export the environment variables with the URL of the root orchestrator, as well as cluster name and location.
 
-Use the docker-compose file to start other necessary Cluster Orchestrator components (Mqtt Broker + MongoDB + Redis as Cluster Scheduler-Queue)
+- No special characters, no spaces.
+- CLUSTER_LOCATION can be a string or geo coordinates in the form of: LATITUDE,LONGITUDE,RADIUS (radius in KM)
 
+```
+export SYSTEM_MANAGER_URL=<IP ADDRESS OF THE NODE HOSTING THE ROOT ORCHESTRATOR>
+export CLUSTER_NAME=<choose a name for your cluster>
+export CLUSTER_LOCATION=<choose a name for the cluster's location>
+```
+
+Then use docker compose:
+
+```
+sudo -E docker-compose -f cluster_orchestrator/docker-compose.yml up
+```
 
 ## Built With
 
-- Python3.8.5
+- Python3.10
   - Flask
   - Flask-MQTT
   - bson

@@ -1,22 +1,25 @@
 package mqtt
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/eclipse/paho.mqtt.golang"
 	"go_node_engine/logger"
 	"go_node_engine/model"
 	"go_node_engine/virtualization"
 	"strings"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+// TOPICS is a map of topics and their handlers
 var TOPICS = make(map[string]mqtt.MessageHandler)
 
 var clientID = ""
 var mainMqttClient mqtt.Client
-var BrokerUrl = ""
-var BrokerPort = ""
+var brokerUrl = ""
+var brokerPort = ""
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logger.InfoLogger().Printf("DEBUG - Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
@@ -26,7 +29,7 @@ var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
 	logger.InfoLogger().Println("Connected to the MQTT broker")
 
 	topicsQosMap := make(map[string]byte)
-	for key, _ := range TOPICS {
+	for key := range TOPICS {
 		topicsQosMap[key] = 1
 	}
 
@@ -49,30 +52,50 @@ var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err
 	logger.InfoLogger().Printf("Connect lost: %v", err)
 }
 
-func InitMqtt(clientid string, brokerurl string, brokerport string) {
+// InitMqtt initializes the mqtt client by connecting to the broker, setting the client ID and the topics
+func InitMqtt(
+	clientid string,
+	brokerurl string,
+	brokerport string,
+	certFile string,
+	keyFile string,
+	runtimeManager *virtualization.RuntimeManager,
+) {
 
 	if clientID != "" {
 		logger.InfoLogger().Printf("Mqtt already initialized no need for any further initialization")
 		return
 	}
 
-	BrokerPort = brokerport
-	BrokerUrl = brokerurl
+	brokerPort = brokerport
+	brokerUrl = brokerurl
 
 	//platform's assigned client ID
 	clientID = clientid
 
-	TOPICS[fmt.Sprintf("nodes/%s/control/deploy", clientID)] = deployHandler
-	TOPICS[fmt.Sprintf("nodes/%s/control/delete", clientID)] = deleteHandler
+	TOPICS[fmt.Sprintf("nodes/%s/control/deploy", clientID)] = withRuntimeManager(deployHandler, runtimeManager)
+	TOPICS[fmt.Sprintf("nodes/%s/control/delete", clientID)] = withRuntimeManager(deleteHandler, runtimeManager)
 
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", BrokerUrl, BrokerPort))
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", brokerUrl, brokerPort))
 	opts.SetClientID(clientid + "-ne")
 	opts.SetUsername("")
 	opts.SetPassword("")
 	opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.OnConnect = connectHandler
 	opts.OnConnectionLost = connectLostHandler
+
+	if certFile != "" {
+		logger.InfoLogger().Printf("MQTT - Configuring TLS")
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			logger.ErrorLogger().Printf("Error loading certificate: %v", err)
+		}
+		opts.SetTLSConfig(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+		})
+		opts.AddBroker(fmt.Sprintf("tls://%s:%s", brokerUrl, brokerPort))
+	}
 
 	go runMqttClient(opts)
 }
@@ -92,20 +115,29 @@ func publishToBroker(topic string, payload string) {
 	}
 }
 
-func deployHandler(client mqtt.Client, msg mqtt.Message) {
+func withRuntimeManager(
+	handler func(mqtt.Client, mqtt.Message, *virtualization.RuntimeManager),
+	runtimeManager *virtualization.RuntimeManager,
+) func(mqtt.Client, mqtt.Message) {
+	return func(client mqtt.Client, msg mqtt.Message) {
+		handler(client, msg, runtimeManager)
+	}
+}
+
+func deployHandler(client mqtt.Client, msg mqtt.Message, runtimeManager *virtualization.RuntimeManager) {
 	logger.InfoLogger().Printf("Received deployment request with payload: %s", string(msg.Payload()))
 	service := model.Service{}
 	err := json.Unmarshal(msg.Payload(), &service)
-	logger.InfoLogger().Printf("%v", service)
+	logger.InfoLogger().Printf("%+v", service)
 	if err != nil {
 		logger.ErrorLogger().Printf("ERROR: unable to unmarshal cluster orch request: %v", err)
 		return
 	}
 	//handle deployment in background
 	go func() {
-		runtime := virtualization.GetRuntime(service.Runtime)
+		runtime := runtimeManager.GetRuntime(model.RuntimeType(service.Runtime))
 		err = runtime.Deploy(service, ReportServiceStatus)
-		service.Status = model.SERVICE_ACTIVE
+		service.Status = model.SERVICE_CREATED
 		if err != nil {
 			logger.ErrorLogger().Printf("ERROR during app deployment: %v", err)
 			service.StatusDetail = err.Error()
@@ -114,7 +146,8 @@ func deployHandler(client mqtt.Client, msg mqtt.Message) {
 		ReportServiceStatus(service)
 	}()
 }
-func deleteHandler(client mqtt.Client, msg mqtt.Message) {
+
+func deleteHandler(client mqtt.Client, msg mqtt.Message, runtimeManager *virtualization.RuntimeManager) {
 	logger.InfoLogger().Printf("Received undeployment request with payload: %s", string(msg.Payload()))
 	service := model.Service{}
 	err := json.Unmarshal(msg.Payload(), &service)
@@ -122,16 +155,19 @@ func deleteHandler(client mqtt.Client, msg mqtt.Message) {
 		logger.ErrorLogger().Printf("ERROR: unable to unmarshal cluster orch request: %v", err)
 		return
 	}
-	runtime := virtualization.GetRuntime(service.Runtime)
-	err = runtime.Undeploy(service.Sname, service.Instance)
-	if err != nil {
-		logger.ErrorLogger().Printf("Unable to undeploy application: %s", err.Error())
-		return
-	}
-	service.Status = model.SERVICE_UNDEPLOYED
-	ReportServiceStatus(service)
+	go func() {
+		runtime := runtimeManager.GetRuntime(model.RuntimeType(service.Runtime))
+		err = runtime.Undeploy(service.Sname, service.Instance)
+		if err != nil {
+			logger.ErrorLogger().Printf("Unable to undeploy application: %s", err.Error())
+			return
+		}
+		service.Status = model.SERVICE_UNDEPLOYED
+		ReportServiceStatus(service)
+	}()
 }
 
+// ReportServiceStatus reports the status of the services
 func ReportServiceStatus(service model.Service) {
 	type ServiceStatus struct {
 		Sname    string `json:"sname"`
@@ -154,6 +190,7 @@ func ReportServiceStatus(service model.Service) {
 	publishToBroker("job", string(jsonmsg))
 }
 
+// ReportServiceResources reports the resources of the services
 func ReportServiceResources(services []model.Resources) {
 	type ServiceResources struct {
 		Services []model.Resources `json:"services"`
@@ -168,6 +205,7 @@ func ReportServiceResources(services []model.Resources) {
 	publishToBroker("jobs/resources", string(jsonmsg))
 }
 
+// ReportNodeInformation reports the information of the node in the broker
 func ReportNodeInformation(node model.Node) {
 	data, err := json.Marshal(node)
 	if err != nil {

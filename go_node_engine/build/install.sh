@@ -1,4 +1,6 @@
-if [ "$1" == "" ]; then
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
     echo "Architecture not set"
     echo "Usage ./install.sh <architecture>"
     echo "supported architectures: amd64, arm64"
@@ -15,6 +17,7 @@ if [ ! $? -eq 0 ]; then
 fi
 
 arch="$1"
+set -e
 
 #check containerd installation
 if sudo systemctl | grep -Fq 'containerd'; then
@@ -30,7 +33,46 @@ else
 fi
 
 #install latest version
-sudo cp NodeEngine_$1 /bin/NodeEngine
-sudo chmod 755 /bin/NodeEngine
+sudo mkdir -p /var/log/oakestra
+sudo systemctl stop nodeengine 2>/dev/null || true
+sudo systemctl stop netmanager 2>/dev/null || true
 
-[ $? -eq 0 ] && echo "Done, installation successful" || echo "Installation failed, errors reported!"
+#compatibility with build script
+if [ -e NodeEngine ]
+then
+    mv NodeEngine NodeEngine_$1
+fi
+if [ -e nodeengined ]
+then
+    mv nodeengined nodeengined_$1
+fi
+
+sudo cp NodeEngine_$1 /bin/NodeEngine
+sudo cp nodeengined_$1 /bin/nodeengined
+
+if [ -e nodeengine.service ]
+then
+    sudo cp nodeengine.service /etc/systemd/system/nodeengine.service
+else
+    sudo cp ../nodeengine.service /etc/systemd/system/nodeengine.service
+fi  
+
+sudo systemctl daemon-reload
+
+sudo chmod 755 /bin/NodeEngine
+sudo chmod 755 /bin/nodeengined
+
+if [ -e oakestra.logrotate ]; then
+    logrotate_src="oakestra.logrotate"
+elif [ -e ../oakestra.logrotate ]; then
+    logrotate_src="../oakestra.logrotate"
+else
+    echo "Warning: oakestra.logrotate not found — log rotation will not be configured"
+    logrotate_src=""
+fi
+
+if [ -n "$logrotate_src" ]; then
+    sudo cp "$logrotate_src" /etc/logrotate.d/oakestra || echo "Warning: failed to install logrotate config — log rotation will not be configured"
+fi
+
+echo "Done, installation successful"

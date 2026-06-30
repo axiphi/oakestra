@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+
+#Oakestra version?
+if [ -z "$OAKESTRA_VERSION" ]; then
+    OAKESTRA_VERSION='main'
+fi
+
+#Check if argument stop is passed, if yes, stop the cluster and exit
+if [ "$1" == "stop" ]; then
+    echo Stopping Oakestra Cluster Orchestrator...
+    docker compose -f ~/.oakestra/cluster_orchestrator/cluster-orchestrator.yml down 
+    exit 0
+fi
+
+echo 🌳 Running Oakestra Cluster 
+
+# Function to check if OAKESTRA_VERSION is a tag (alpha-vX.Y.Z or vX.Y.Z)
+is_tag() {
+    if [[ "$1" =~ ^(alpha-)?v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+if [ ! -z "$CLUSTER_LOCATION" ]; then
+    cluster_location=$CLUSTER_LOCATION
+fi
+
+if [ ! -z "$CLUSTER_NAME" ]; then
+    cluster_name=$CLUSTER_NAME
+fi
+
+if [ ! -z "$CLUSTER_ADDRESS" ]; then
+    cluster_address=$CLUSTER_ADDRESS
+fi
+
+# Resolve the default outbound IP for this host so we can suggest it as the
+# cluster address. This is the IP the root orchestrator will use to reach
+# this cluster_manager — it must be routable from the root.
+detect_default_ip() {
+    case "$(uname)" in
+        Darwin)
+            local iface
+            iface=$(route -n get default 2>/dev/null | awk '/interface: / {print $2}')
+            if [ -n "$iface" ]; then
+                ipconfig getifaddr "$iface" 2>/dev/null
+            fi
+            ;;
+        Linux)
+            ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}'
+            ;;
+    esac
+}
+
+# Check if docker and docker compose installed 
+if [ ! -x "$(command -v docker)" ]; then
+  echo "Docker is not installed. Please refer to the official Docker documentation for installation instructions specific to your OS: https://docs.docker.com/engine/install/"
+  exit 1
+fi
+echo Checking docker compose version
+sudo docker compose version
+if [ $? -ne 0 ]; then
+    current_os=$(uname)
+    if [ "$current_os" = "Darwin" ]; then
+        echo "Docker compose v2 or higher is required. Please refer to the official Docker documentation for installation instructions specific to your OS: https://docs.docker.com/compose/migrate/"
+        exit 1
+    else
+        echo "Installing Docker Compose plugin"
+        if [ ! -x "$(command -v apt-get)" ]; then
+            sudo apt-get update
+            sudo apt-get install docker-compose-plugin
+        fi
+        if [ ! -x "$(command -v yum)" ]; then
+            sudo yum update
+            sudo yum install docker-compose-plugin
+        fi
+    fi
+fi
+
+if [ -z "$cluster_location" ]; then
+
+    # Installs jq if not present
+    if [ ! -x "$(command -v jq)" ]; then
+        echo "jq is not installed. Installing..."
+        # Detect OS
+        if [ "$(uname)" = "Darwin" ]; then
+            # Install jq on macOS using Homebrew
+            if ! command -v brew &> /dev/null; then
+            echo "Homebrew is not installed. Please install Homebrew and re-run the script."
+            exit 1
+            fi
+            brew install jq
+        else
+            # Install jq on Ubuntu/Debian based systems using apt
+            sudo apt update && sudo apt install -y jq
+        fi
+        echo "jq installation complete."
+    else
+        echo "jq is already installed."
+    fi
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to install jq. Please install it manually."
+        exit 1
+    fi
+
+    # Fetch a URL with retries. Many users have hit transient failures from
+    # api.ipify.org / ipinfo.io (TLS hiccup, DNS blip, rate limit) where a
+    # second run "magically" works — retrying inside the script avoids that
+    # whole class of flake. Prints the body on success, empty on failure.
+    fetch_with_retry() {
+        local url="$1"
+        local attempts=4
+        local delay=2
+        local i
+        for i in $(seq 1 $attempts); do
+            local out
+            out=$(curl -sLf --connect-timeout 5 --max-time 10 "$url") && {
+                printf '%s' "$out"
+                return 0
+            }
+            [ "$i" -lt "$attempts" ] && sleep "$delay"
+            delay=$((delay * 2))
+        done
+        return 1
+    }
+
+    PUBLIC_IP=$(fetch_with_retry "https://api.ipify.org") || PUBLIC_IP=""
+    if [ -n "$PUBLIC_IP" ]; then
+        ipLocation=$(fetch_with_retry "https://ipinfo.io/$PUBLIC_IP/json") || ipLocation=""
+    fi
+
+    if [ -n "$ipLocation" ]; then
+        latitude=$(echo "$ipLocation" | jq -r '.loc | split(",") | .[0]')
+        longitude=$(echo "$ipLocation" | jq -r '.loc | split(",") | .[1]')
+        if [ -n "$latitude" ] && [ "$latitude" != "null" ]; then
+            cluster_location=$(echo $latitude,$longitude,1000)
+            export CLUSTER_LOCATION=$cluster_location
+        fi
+    fi
+
+    if [ -z "$CLUSTER_LOCATION" ]; then
+        echo "⚠️  Could not auto-detect cluster location from public IP geolocation services."
+        echo "    You will be asked to enter it manually below."
+    fi
+fi
+
+if [ -z "$cluster_address" ]; then
+    cluster_address=$(detect_default_ip)
+fi
+
+echo Leave a field empty to keep the current value
+echo "Enter Cluster Name (current: $cluster_name): "
+read cluster_name_input < /dev/tty
+echo "Enter Cluster Location (current: $cluster_location): "
+read cluster_location_input < /dev/tty
+echo "Enter Cluster Address — IP/hostname the root can reach this cluster on (current: $cluster_address): "
+read cluster_address_input < /dev/tty
+echo "Enter Root Orchestrator URL (current: $SYSTEM_MANAGER_URL): "
+read system_manager_url_input < /dev/tty
+
+if [ ! -z "$cluster_name_input" ]; then
+    echo 🛠️ Setting new cluster name
+    export CLUSTER_NAME=$cluster_name_input
+fi
+
+if [ ! -z "$cluster_location_input" ]; then
+    echo 🛠️ Setting new cluster location
+    export CLUSTER_LOCATION=$cluster_location_input
+fi
+
+if [ ! -z "$cluster_address_input" ]; then
+    echo 🛠️ Setting new cluster address
+    export CLUSTER_ADDRESS=$cluster_address_input
+elif [ ! -z "$cluster_address" ]; then
+    export CLUSTER_ADDRESS=$cluster_address
+fi
+
+if [ ! -z "$system_manager_url_input" ]; then
+    echo 🛠️ Setting new root url
+    export SYSTEM_MANAGER_URL=$system_manager_url_input
+fi
+
+if [ -z "$CLUSTER_NAME" ]; then
+    echo ❌❌❌ Cluster Name is required
+    exit 1
+fi
+
+if [ -z "$CLUSTER_LOCATION" ]; then
+     echo ❌❌❌ Cluster Location is required
+    exit 1
+fi
+
+if [ -z "$CLUSTER_ADDRESS" ]; then
+     echo ❌❌❌ Cluster Address is required and could not be auto-detected
+    exit 1
+fi
+
+if [ -z "$SYSTEM_MANAGER_URL" ]; then
+     echo ❌❌❌ Root Orchestrator URL is required
+    exit 1
+fi
+
+rm -rf ~/.oakestra/cluster_orchestrator 2> /dev/null
+mkdir -p ~/.oakestra/cluster_orchestrator 2> /dev/null
+
+CURRENT_DIR=$(pwd)
+cd ~/.oakestra/cluster_orchestrator 2> /dev/null
+
+curl -sfL https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/scripts/utils/downloadConfigFiles.sh > downloadConfigFiles.sh
+curl -sfL https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/cluster_orchestrator/docker-compose.yml > cluster-orchestrator.yml
+curl -sfL https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/cluster_orchestrator/override-images-only.yml > override-cluster-images-only.yml
+
+chmod +x downloadConfigFiles.sh
+./downloadConfigFiles.sh cluster_orchestrator $OAKESTRA_VERSION
+
+#If additional override files provided, download them
+OAK_OVERRIDES=''
+
+if [ ! -z "$OVERRIDE_FILES" ]; then
+    IFS=, 
+    # Split the string into an array using read -r -a
+    for element in $OVERRIDE_FILES
+    do
+        echo "Download override: $element"
+        wget -c https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/cluster_orchestrator/$element 2> /dev/null
+        OAK_OVERRIDES="${OAK_OVERRIDES}-f ${element} " 
+    done
+    IFS= 
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to retrieve the override."
+        exit 1
+    fi
+fi
+
+# Handle OAKESTRA_VERSION if set
+BUILD_FLAG=''
+COMPOSE_FILE='cluster-orchestrator.yml'
+if [ ! -z "$OAKESTRA_VERSION" ]; then
+    if is_tag "$OAKESTRA_VERSION"; then
+        echo "🏷️  Using tag: $OAKESTRA_VERSION"
+        # Update the override-cluster-images-only.yml with specific tag
+        cp override-cluster-images-only.yml override-cluster-images-only.yml.bak
+        sed "s/:latest/:$OAKESTRA_VERSION/g" override-cluster-images-only.yml.bak > override-cluster-images-only.yml
+        rm override-cluster-images-only.yml.bak
+        OAK_OVERRIDES="${OAK_OVERRIDES}-f override-cluster-images-only.yml "  
+    else
+        echo "🌿 Using branch: $OAKESTRA_VERSION"
+        # if main branch, use latest images, if not main branch, build from source
+        if [ "$OAKESTRA_VERSION" != "main" ]; then
+            echo "🛠️ Non-main branch specified without a tag. Building from version."
+            git checkout $OAKESTRA_VERSION
+            
+            # Check remove / scripts from CURRENT_DIR if present to get to repo root
+            cd $CURRENT_DIR
+            if [[ "$CURRENT_DIR" == *"/scripts" ]]; then
+                cd ..
+            fi
+            cd cluster_orchestrator
+            echo "📦 Building images from source..."
+            BUILD_FLAG=' --build'
+            COMPOSE_FILE='docker-compose.yml'
+        else
+            OAK_OVERRIDES="${OAK_OVERRIDES}-f override-cluster-images-only.yml "
+            echo "🌿 Using main branch, pulling latest images from Docker Hub."
+        fi
+    fi
+fi
+
+# If non-main branch and no override provided, update custom version of service manager to prevent potential issues with network policies in non-main branches
+if [ "$OAKESTRA_VERSION" != "main" ]; then
+    if [[ ! "$OVERRIDE_FILES" == *"override-no-network.yml"* ]] && [[ ! "$OVERRIDE_FILES" == *"override-custom-service-manager-version.yml"* ]] && [[ ! "$OVERRIDE_FILES" == *"override-local-service-manager.yml"* ]]; then
+        echo "🕸️ Setting network to latest alpha release"
+        if is_tag "$OAKESTRA_VERSION"; then
+            ALPHA_TAG=$(echo $OAKESTRA_VERSION | sed 's/alpha-//g')
+        else
+            ALPHA_TAG=$(curl -s https://raw.githubusercontent.com/oakestra/oakestra-net/refs/heads/develop/version.txt)
+        fi
+        # Create override file with custom service manager version
+        echo "services:
+  root_service_manager:
+    image: ghcr.io/oakestra/oakestra-net/root-service-manager:alpha-$ALPHA_TAG" > ~/.oakestra/cluster_orchestrator/override-custom-service-manager-version.yml
+        OAK_OVERRIDES="${OAK_OVERRIDES}-f override-custom-service-manager-version.yml " 
+
+        OAK_OVERRIDES="${OAK_OVERRIDES}-f ~/.oakestra/cluster_orchestrator/override-custom-service-manager-version.yml "
+    fi
+fi
+
+if sudo docker ps -a | grep oakestra/cluster >/dev/null 2>&1; then
+    echo 🚨 Detected some Oakestra cluster containers already running. It is recommended to stop them before starting a new cluster.
+    echo Do you wish to continue anyway? \(y/n\)
+    read answer < /dev/tty
+    if [ "$answer" != "y" ]; then
+      echo Exiting without starting Oakestra Cluster.
+      exit 0
+    fi
+fi
+
+command_exec="LIB_BRANCH=${OAKESTRA_VERSION} sudo -E docker compose -f ${COMPOSE_FILE} ${OAK_OVERRIDES} up ${BUILD_FLAG} -d"
+echo executing "$command_exec"
+
+eval "$command_exec"
+
+echo 
+echo 🌳 Oakestra Cluster Orchestrator is now starting up...
+echo
+echo 🖥️ Oakestra dashboard available at http://$SYSTEM_MANAGER_URL
+echo 📊 Root Grafana dashboard available at http://$SYSTEM_MANAGER_URL:3000
+echo 📊 Cluster Grafana dashboard available at http://$SYSTEM_MANAGER_URL:3001
+echo 📈 You can access the APIs at http://$SYSTEM_MANAGER_URL:10000/api/docs
+echo 🪫 You can turn off the cluster using: \$ docker compose -f ~/.oakestra/cluster_orchestrator/cluster-orchestrator.yml down

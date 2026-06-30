@@ -1,7 +1,0 @@
-flask
-flask_pymongo
-celery==4.4.2
-click
-redis
-requests
-pymongo

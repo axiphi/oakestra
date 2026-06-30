@@ -8,6 +8,7 @@ import (
 
 var once sync.Once
 
+// NodeStatusUpdater updates the status of the node.
 func NodeStatusUpdater(cadence time.Duration, statusUpdateHandler func(node model.Node)) {
 	once.Do(func() {
 		go updateRoutine(cadence, statusUpdateHandler)
@@ -15,10 +16,8 @@ func NodeStatusUpdater(cadence time.Duration, statusUpdateHandler func(node mode
 }
 
 func updateRoutine(cadence time.Duration, statusUpdateHandler func(node model.Node)) {
-	for true {
-		select {
-		case <-time.After(cadence):
-			statusUpdateHandler(model.GetDynamicInfo())
-		}
+	for {
+		<-time.After(cadence)
+		statusUpdateHandler(model.GetDynamicInfo())
 	}
 }

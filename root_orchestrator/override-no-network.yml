@@ -1,0 +1,15 @@
+version: "3.3"
+
+services:
+
+  # Remove Rott service maanger to disable network capabilities
+  root_service_manager:
+    deploy:
+      mode: replicated
+      replicas: 0
+
+  mongo_rootnet:
+    deploy:
+      mode: replicated
+      replicas: 0
+

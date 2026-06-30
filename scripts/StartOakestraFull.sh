@@ -1,0 +1,215 @@
+#!/bin/bash
+
+#Oakestra version?
+if [ -z "$OAKESTRA_VERSION" ]; then
+    OAKESTRA_VERSION='main'
+fi
+
+#Check if argument stop is passed, if yes, stop the cluster and exit
+if [ "$1" == "stop" ]; then
+    echo Stopping Oakestra Root Orchestrator...
+    docker compose -f ~/.oakestra/1-DOC.yaml down 
+    exit 0
+fi
+
+echo 🌳 Running Oakestra 1-DOC 
+
+# Function to check if OAKESTRA_VERSION is a tag (alpha-vX.Y.Z or vX.Y.Z)
+is_tag() {
+    if [[ "$1" =~ ^(alpha-)?v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if docker and docker compose installed 
+if [ ! -x "$(command -v docker)" ]; then
+  echo "Docker is not installed. Please refer to the official Docker documentation for installation instructions specific to your OS: https://docs.docker.com/engine/install/"
+  exit 1
+fi
+
+echo Checking docker compose version
+sudo docker compose version
+if [ $? -ne 0 ]; then
+    current_os=$(uname)
+    if [ "$current_os" = "Darwin" ]; then
+        echo "Docker compose v2 or higher is required. Please refer to the official Docker documentation for installation instructions specific to your OS: https://docs.docker.com/compose/migrate/"
+        exit 1
+    else
+        echo "Installing Docker Compose plugin"
+        if [ ! -x "$(command -v apt-get)" ]; then
+            sudo apt-get update
+            sudo apt-get install docker-compose-plugin
+        fi
+        if [ ! -x "$(command -v yum)" ]; then
+            sudo yum update
+            sudo yum install docker-compose-plugin
+        fi
+    fi
+fi
+
+# Detect OS
+current_os=$(uname)
+
+# Installs jq if not present
+if [ ! -x "$(command -v jq)" ]; then
+  echo "jq is not installed. Installing..."
+  if [ $current_os = "Darwin" ]; then
+    # Install jq on macOS using Homebrew
+    brew install jq
+  else
+    # Install jq on Ubuntu/Debian based systems using apt
+    sudo apt update && sudo apt install -y jq
+  fi
+  echo "jq installation complete."
+else
+  echo "jq is already installed."
+fi
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to install jq. Please install it manually."
+    exit 1
+fi
+
+#Default configuration?
+if [ "$2" != "custom" ]; then
+    echo 🔧 Using default configuration
+
+    # if custom IP not set use default one
+    if [ -z "$SYSTEM_MANAGER_URL" ]; then
+      # get IP address of this machine
+      if [ $current_os = "Darwin" ]; then
+          export SYSTEM_MANAGER_URL=$(ipconfig getifaddr en0)
+      else
+          export SYSTEM_MANAGER_URL=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
+      fi
+      if [ $? -ne 0 ]; then
+          echo "Error: Failed to retrieve interface IP."
+          exit 1
+      fi
+    fi
+    echo Default node IP: $SYSTEM_MANAGER_URL
+
+    # Fetch a URL with retries — api.ipify.org / ipinfo.io occasionally have
+    # transient failures (TLS hiccup, DNS blip, rate limit) that resolve on retry.
+    fetch_with_retry() {
+        local url="$1"
+        local attempts=4
+        local delay=2
+        local i
+        for i in $(seq 1 $attempts); do
+            local out
+            out=$(curl -sLf --connect-timeout 5 --max-time 10 "$url") && {
+                printf '%s' "$out"
+                return 0
+            }
+            [ "$i" -lt "$attempts" ] && sleep "$delay"
+            delay=$((delay * 2))
+        done
+        return 1
+    }
+
+    PUBLIC_IP=$(fetch_with_retry "https://api.ipify.org") || PUBLIC_IP=""
+    if [ -n "$PUBLIC_IP" ]; then
+        ipLocation=$(fetch_with_retry "https://ipinfo.io/$PUBLIC_IP/json") || ipLocation=""
+    fi
+
+    if [ -n "$ipLocation" ]; then
+        latitude=$(echo "$ipLocation" | jq -r '.loc | split(",") | .[0]')
+        longitude=$(echo "$ipLocation" | jq -r '.loc | split(",") | .[1]')
+    fi
+
+    if [ -n "$latitude" ] && [ "$latitude" != "null" ]; then
+        echo Default cluster location $(echo $latitude,$longitude,1000)
+        export CLUSTER_LOCATION=$(echo $latitude,$longitude,1000)
+    else
+        echo "⚠️  Could not auto-detect cluster location from public IP geolocation; defaulting to 0,0,1000"
+        export CLUSTER_LOCATION="0,0,1000"
+    fi
+    export CLUSTER_NAME=default_cluster
+    # In 1-DOC the cluster runs on the same host as the root, so the cluster's
+    # reachable address is the same host IP as SYSTEM_MANAGER_URL.
+    if [ -z "$CLUSTER_ADDRESS" ]; then
+        export CLUSTER_ADDRESS=$SYSTEM_MANAGER_URL
+    fi
+fi
+
+rm -rf ~/.oakestra 2> /dev/null
+mkdir ~/.oakestra 2> /dev/null
+
+cd ~/.oakestra 
+
+curl -sfL https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/scripts/utils/downloadConfigFiles.sh > downloadConfigFiles.sh
+curl -sfL https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/run-a-cluster/1-DOC.yaml > 1-DOC.yaml
+
+chmod +x downloadConfigFiles.sh
+./downloadConfigFiles.sh run-a-cluster $OAKESTRA_VERSION
+
+if [ $? -ne 0 ]; then
+        echo "Error: Failed to retrieve config files"
+        exit 1
+fi
+
+#If additional override files provided, download them
+OAK_OVERRIDES=''
+
+if [ ! -z "$OVERRIDE_FILES" ]; then
+    IFS=, 
+    # Split the string into an array using read -r -a
+    for element in $OVERRIDE_FILES
+    do
+        echo "Download override: $element"
+        curl -sfL https://raw.githubusercontent.com/oakestra/oakestra/$OAKESTRA_VERSION/run-a-cluster/$element > $element
+        OAK_OVERRIDES="${OAK_OVERRIDES}-f ${element} " 
+    done
+    IFS= 
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to retrieve the override."
+        exit 1
+    fi
+fi
+
+# Handle OAKESTRA_VERSION if set
+if [ "$OAKESTRA_VERSION" == "develop" ]; then
+    # for Oakestra develop, use latest alpha images built from develop branch
+    OAKESTRA_VERSION=alpha-$(curl -s https://raw.githubusercontent.com/oakestra/oakestra/refs/heads/develop/version.txt)
+    echo "Using develop branch, setting OAKESTRA_VERSION to $OAKESTRA_VERSION"
+fi
+
+if [ ! -z "$OAKESTRA_VERSION" ]; then
+    if is_tag "$OAKESTRA_VERSION"; then
+        echo "🏷️  Using tag: $OAKESTRA_VERSION"
+        # Generate override file with specific tag
+        cp 1-DOC.yaml 1-DOC.yaml.bak
+        sed "s/:latest/:$OAKESTRA_VERSION/g" 1-DOC.yaml.bak > 1-DOC.yaml
+        rm 1-DOC.yaml.bak 
+    else
+        if [ "$OAKESTRA_VERSION" != "main" ]; then
+          echo "Error: Full 1 Node Oakestra deployment only supports tagged releases, develop or main branch. Please specify a valid tag (e.g., v0.4.410 or alpha-v0.4.411)."
+          exit 1
+        fi
+    fi
+fi
+
+if sudo docker ps -a | grep oakestra >/dev/null 2>&1; then
+  echo 🚨 Detected some Oakestra containers already running. It is recommended to stop them before starting a new 1-DOC cluster.
+  echo Do you wish to continue anyway? \(y/n\)
+  read answer < /dev/tty
+  if [ "$answer" != "y" ]; then
+    echo Exiting without starting Oakestra 1-DOC.
+    exit 0
+  fi
+fi
+
+command_exec="sudo -E docker compose -f 1-DOC.yaml ${OAK_OVERRIDES} up -d"
+echo executing "$command_exec"
+
+eval "$command_exec"
+
+echo 
+echo 🌳 Oakestra 1-DOC is now starting up...
+echo
+echo 🖥️ Oakestra dashboard available at http://$SYSTEM_MANAGER_URL
+echo 📊 Grafana dashboard available at http://$SYSTEM_MANAGER_URL:3000
+echo 📈 You can access the APIs at http://$SYSTEM_MANAGER_URL:10000/api/docs
+echo 🪫 You can turn off the cluster using: \$ docker compose -f ~/.oakestra/1-DOC.yaml down

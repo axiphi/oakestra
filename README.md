@@ -1,230 +1,155 @@
+![workflow code style](https://github.com/oakestra/oakestra/actions/workflows/super-linter.yml/badge.svg)
+![node artifacts](https://github.com/oakestra/oakestra/actions/workflows/node_engine_artifacts.yml/badge.svg)
+![system artifacts](https://github.com/oakestra/oakestra/actions/workflows/root_system_manager_tests.yml/badge.svg)
+[![Stable](https://img.shields.io/badge/Latest%20Stable-🎸Bass%20v0.4.400-green.svg)](https://github.com/oakestra/oakestra/tree/v0.4.400)
+[![Github Downloads](https://img.shields.io/github/downloads/oakestra/oakestra/total.svg)]()
 ![Oakestra](res/oakestra-white.png)
 
-# How to create a development cluster
-## Deploy a Root Orchestrator 
 
-On a Linux machine with public IP address or DNS name, first install Docker and Docker-compose. Then, run the following commands to set up the Root Orchestrator components. 
+**Oakestra** is an orchestration platform designed for Edge Computing.
+Popular orchestration platforms such as Kubernetes or K3s struggle at maintaining workloads across heterogeneous and constrained devices. 
+Oakestra is build from the ground up to support computation in a flexible way at the edge. 
 
+🌐 Read more about the project at: [oakestra.io](http://oakestra.io)
+
+📚 Check out the project wiki at: [oakestra.io/docs](https://www.oakestra.io/docs/getting-started/welcome-to-oakestra/)
+
+---
+
+## 📕 Requirements 
+<a name="requirements"></a>
+
+### Minimum System Requirements
+Root and Cluster orchestrator (combined):
+- Docker + Docker Compose v2
+- 5GB of Disk
+- 1GB of RAM
+- ARM64 or AMD64 architecture
+
+Worker Node:
+- Linux based distro with iptables compatbiliety 
+- 50MB of space
+- 100MB RAM
+- ARM64 or AMD64 architecture
+
+### Network Configuration
+Root: 
+  - External APIs: port 10000
+  - Cluster APIs: ports 10099,10000
+
+Cluster: 
+  - Worker's Broker: port 10003
+  - Worker's APIs: port 10100
+
+Worker: 
+  - P2P tunnel towards other workers: port 50103 
+
+# 🌳 Get Started
+<a name="🌳-get-started"></a>
+
+Before being able to deploy your first application, we must create a fully functional Oakestra Root 👑, to that we attach the clusters 🪵, and to each cluster we attach at least one worker node 🍃.
+
+Check out the [GetStarted Guide](https://www.oakestra.io/docs/getting-started/oak-environment/your-first-orchestrator/).
+
+
+# ⚒️ Build Instructions
+### Root Orchestrator 
+Build and run your own Root Orchestrator
+
+On a Linux machine first, install Docker and Docker compose v2. 
+
+Configure the a custom address used by the dashboard to reach your APIs. By default it uses the current public IP of the machine where you run the root. 
+
+(optional )`export SYSTEM_MANAGER_URL=<Address of current machine>`
+
+
+Then clone the repo and run:
 ```bash
-cd root_orchestrator/
-docker-compose up --build 
+export OAKESTRA_VERSION=develop
+./scripts/StartOakestraRoot.sh 
 ```
+
+> Tip: The `OAK_VERSION` variable can be set to a branch or a specific version. A branch triggers a custom build, while a specific version (E.g., v0.4.401) uses the release images for that version. Check [root-orchestrator/README.md](/root_orchestrator/README.md) for further details.
+> Tip: we provide a set of compose override files for every need. Full documentation is available [here](https://www.oakestra.io/docs/manuals/advanced-cluster-setup/#compose-overrides) and the available override files are stored in `/root-orchestrator/override-*.yaml`. To add an override export the overrides file variable `OVERRIDE_FILES`. E.g., `export OAK_OVERRIDES=override-no-dashboard.yml,override-no-network.yml`. 
 
 The following ports are exposed:
 
-- Port 80 - Grafana Dashboard (It can be used to monitor the clsuter status)
-- Port 10000 - System Manager (It needs to be accessible from the Cluster Orchestrator)
+- Port 80/TCP - Dashboard 
+- Port 10000/TCP - System Manager (Public port, but it also needs to be accessible from the Cluster Orchestrator)
+- Port 50052/TCP - System Manager (Needs to be exposed to the Clusters for cluster registration.)
+- Port 10099/TCP - Service Manager (This port should be exposed only to the Clusters)
+- Port 11103/TCP - Marketplace and addons manager (This port should be available only to the admin)
 
+#### ✅ Everything ok? 
+Check the oakestra components using: `docker ps`
 
-## Deploy one or more Cluster Orchestrator(s)
+### Cluster Orchestrator
 
-For each one of the cluster orchestrator that needs to be deployed 
+For each cluster, we need at least a machine running the clsuter orchestrator. 
 
-- Log into a Linux machine with public IP address or DNS name
-- Install Docker and Docker-compose.
+- Log into the target machine/vm you intend to use
+- Install Docker and Docker compose v2.
 - Export the required parameters:
 
-```
-export SYSTEM_MANAGER_URL=" < ip address of the root orchestrator > "
-export CLUSTER_NAME=" < name of the cluster > "
-export CLUSTER_LOCATION=" < location of the cluster > "
-```
 
-- Then, run the following commands to set up the Cluster Orchestrator components. 
-
+#### Optional
 ```bash
-cd cluster_orchestrator/
-docker-compose up --build 
+## Choose a unique name for your cluster
+export CLUSTER_NAME=My_Awesome_Cluster
+
+## Optional: Give a name or geo coordinates to the current location. This can either be a string or geo coordinates in the for of LATITUDE,LONGITUDE,RADIUS_IN_METER
+# E.g. CLUSTER_LOCATION=51.518776717233244,-0.12612153395857345,2000
+export CLUSTER_LOCATION=My_Awesome_Location
+
+## IP/hostname at which the root orchestrator can reach THIS cluster manager.
+## Must be a non-loopback address on this host, routable from the root.
+## If unset, the startup script auto-detects the default-route interface IP
+## and offers it as the default.
+export CLUSTER_ADDRESS=<this cluster's IP>
+
+## IP address where this root component can be reached to access the APIs
+export SYSTEM_MANAGER_URL=<IP address>
+# Note: Use a non-loopback interface IP (e.g. any of your real interfaces that have internet access).
+# "0.0.0.0" leads to server issues
+```
+If these variables are not set, the startup script will ask with a prompt.
+
+If you wish to build the cluster orchestrator yourself simply clone the repo and run:
+```bash
+export OAKESTRA_VERSION=develop
+./scripts/StartOakestraCluster.sh 
 ```
 
-The following ports are exposed:
+> Tip: The `OAK_VERSION` variable can be set to a branch or a specific version. A branch triggers a custom build, while a specific version (E.g., v0.4.401) uses the release images for that version. Check [cluster-orchestrator/README.md](/cluster_orchestrator/README.md) for further details.
+> Tip: we provide a set of compose override files for every need. Full documentation is available [here](https://www.oakestra.io/docs/manuals/advanced-cluster-setup/#compose-overrides) and the available override files are stored in `/cluster-orchestrator/override-*.yaml`. 
 
-- 10100 Cluster Manager (needs to be accessible by the Node Engine)
+The following ports must be exposed:
 
-## Add worker nodes (run Node Engine)
+- 10100 Cluster Manager — must be reachable from BOTH the Node Engine workers AND the root orchestrator (the root probes `GET /api/cluster/status` at registration time and refuses to register the cluster if `CLUSTER_ADDRESS:10100` is not reachable).
 
+### Worker nodes 
+
+#### Worker nodes - Build your node engine
 *Requirements*
 - Linux OS with the following packages installed (Ubuntu and many other distributions natively supports them)
   - iptable
   - ip utils
-- port 50103 available
+- port 50103 available to all worker nodes
 
-1) First you need to install the go Node Engine.
+Compile and install the binary with:
 ```
-wget -c https://github.com/oakestra/oakestra/releases/download/v0.4.2/NodeEngine_$(dpkg --print-architecture).tar.gz && tar -xzf NodeEngine_$(dpkg --print-architecture).tar.gz && chmod +x install.sh && ./install.sh
-```
-2) (Optional, required only if you want to enable communication across the microservices) Install the [OakestraNet/Node_net_manager](https://github.com/oakestra/oakestra-net/tree/main/node-net-manager) component using the following commsnd:
-```
-wget -c https://github.com/oakestra/oakestra-net/releases/download/v0.4.2/NetManager_$(dpkg --print-architecture).tar.gz && tar -xzf NetManager_$(dpkg --print-architecture).tar.gz && chmod +x install.sh && ./install.sh $(dpkg --print-architecture)
-```
-2.1) Configure the NetManager config file accordingly to what stated in the [NetManager Readme](https://github.com/oakestra/oakestra-net/blob/main/node-net-manager/README.md). Leave the ClusterMqttPort value to the default 10003 value.  
-2.2) Run the NetManager using `sudo NetManager -p 6000`
-3) Run the node engine: `sudo NodeEngine -a <cluster orchestrator address> -p <cluster orhcestrator port e.g. 10100> -n 6000`. If you specifcy the flag `-n 6000`, the NodeEngine expects a running NetManager component on port 6000. If this is the case, the node will start in overlay mode, enabling the networking across the deployed application. In order to do so, you need to have the Oakestra NetManager component installed on your worker node ([OakestraNet/Node_net_manager](https://github.com/oakestra/oakestra-net/tree/main/node-net-manager)). If you don't which to enable the networking, simply avoid specifying the flag -n. Use NodeEngine -h for further details
-3.1) As an alternative you can run the development version of the NodeEngine moving inside `go_node_engine` and running `sudo go NodeEngine -a <cluster orchestrator address> -p <cluster orhcestrator port e.g. 10100> -n <net manager port>`
-
-# Use the APIs to deploy a new application
-
-## Deployment descriptor
-
-In order to deploy a container a deployment descriptor must be passed to the deployment command. 
-The deployment descriptor contains all the information that Oakestra needs in order to achieve a complete
-deploy in the system. 
-
-Since version 0.4, Oakestra (previously, EdgeIO) uses the following deployment descriptor format. 
-
-`deploy_curl_application.yaml`
-
-```yaml
-{
-  "sla_version" : "v2.0",
-  "customerID" : "Admin",
-  "applications" : [
-    {
-      "applicationID" : "",
-      "application_name" : "clientsrvr",
-      "application_namespace" : "test",
-      "application_desc" : "Simple demo with curl client and Nginx server",
-      "microservices" : [
-        {
-          "microserviceID": "",
-          "microservice_name": "curl",
-          "microservice_namespace": "test",
-          "virtualization": "container",
-          "cmd": ["sh", "-c", "tail -f /dev/null"],
-          "memory": 100,
-          "vcpus": 1,
-          "vgpus": 0,
-          "vtpus": 0,
-          "bandwidth_in": 0,
-          "bandwidth_out": 0,
-          "storage": 0,
-          "code": "docker.io/curlimages/curl:7.82.0",
-          "state": "",
-          "port": "9080",
-          "added_files": []
-        },
-        {
-          "microserviceID": "",
-          "microservice_name": "nginx",
-          "microservice_namespace": "test",
-          "virtualization": "container",
-          "cmd": [],
-          "memory": 100,
-          "vcpus": 1,
-          "vgpus": 0,
-          "vtpus": 0,
-          "bandwidth_in": 0,
-          "bandwidth_out": 0,
-          "storage": 0,
-          "code": "docker.io/library/nginx:latest",
-          "state": "",
-          "port": "6080:60/tcp",
-          "addresses": {
-            "rr_ip": "10.30.30.30"
-          },
-          "added_files": []
-        }
-      ]
-    }
-  ]
-}
+cd go_node_engine/build
+./build.sh
+./install.sh $(dpkg --print-architecture)
 ```
 
-This deployment descriptor example generates one application named *clientserver* with the `test` namespace and two microservices:
-- nginx server with test namespace, namely `clientserver.test.nginx.test`
-- curl client with test namespace, namely `clientserver.test.curl.test`
+Configure and install the Node Network Manager, just follow the build guide in this [README](github.com/oakestra/oakestra-net) 
 
-This is a detailed description of the deployment descriptor fields currently implemented:
-- sla_version: the current version is v0.2
-- customerID: id of the user, default is Admin
-  - application list, in a single deployment descriptor is possible to define multiple applications, each containing:
-    - Fully qualified app name: A fully qualified name in Oakestra is composed of 
-        - application_name: unique name representing the application (max 10 char, no symbols)
-        - application_namespace: namespace of the app, used to reference different deployment of the same application. Examples of namespace name can be `default` or `production` or `test` (max 10 char, no symbols)
-        - applicationID: leave it empty for new deployments, this is needed only to edit an existing deployment.  
-    - application_desc: Short description of the application
-    - microservice list, a list of the microservices composing the application. For each microservice the user can specify:
-      - microserviceID: leave it empty for new deployments, this is needed only to edit an existing deployment.
-      - Fully qualified service name:
-        - microservice_name: name of the service (max 10 char, no symbols)
-        - microservice_namespace: namespace of the service, used to reference different deployment of the same service. Examples of namespace name can be `default` or `production` or `test` (max 10 char, no symbols)
-      - virtualization: currently the only uspported virtualization is `container`
-      - cmd: list of the commands to be executed inside the container at startup
-      - vcpu,vgpu,memory: minimum cpu/gpu vcores and memory amount needed to run the container
-      - vtpus: currently not implemented
-      - storage: minimum storage size required (currently the scheduler does not take this value into account)
-      - bandwidth_in/out: minimum required bandwith on the worker node. (currently the scheduler does not take this value into account)
-      - port: port mapping for the container in the syntax hostport_1:containerport_1\[/protocol];hostport_2:containerport_2\[/protocol] (default protocol is tcp)
-      - addresses: allows to specify a custom ip address to be used to balance the traffic across all the service instances. 
-        - rr\_ip: [optional filed] This field allows you to setup a custom Round Robin network address to reference all the instances belonging to this service. This address is going to be permanently bounded to the service. The address MUST be in the form `10.30.x.y` and must not collide with any other Instance Address or Service IP in the system, otherwise an error will be returned. If you don't specify a RR_ip and you don't set this field, a new address will be generated by the system.
-      - constraints: array of constraints regarding the service. 
-        - type: constraint type
-          - `direct`: Send a deployment to a specific cluster and a specific list of eligible nodes. You can specify `"node":"node1;node2;...;noden"` a list of node's hostnames. These are the only eligible worker nodes.  `"cluster":"cluster_name"` The name of the cluster where this service must be scheduled. E.g.:
-         
-    ```
-    "constraints":[
-                {
-                  "type":"direct",
-                  "node":"xavier1",
-                  "cluster":"gpu"
-                }
-              ]
-    ```
- 
-## Login
-After running a cluster you can use the debug OpenAPI page to interact with the apis and use the infrastructure
+Finally, start the node engine with the following command:
 
-connect to `<root_orch_ip>:10000/api/docs`
+```
+sudo NodeEngine -a <IP or URL of the cluster orchestrator, default 0.0.0.0> -d
+```
 
-Authenticate using the following procedure:
 
-1. locate the login method and use the try-out button
-![try-login](res/login-try.png)
-2. Use the default Admin credentials to login
-![execute-login](res/login-execute.png)
-3. Copy the result login token
-![token-login](res/login-token-copy.png)
-4. Go to the top of the page and authenticate with this token
-![auth-login](res/authorize.png)
-![auth2-login](res/authorize-2.png)
 
-## Register an application and the services
-After you authenticate with the login function, you can try out to deploy the first application. 
-
-1. Upload the deployment description to the system. You can try using the deployment descriptor above.
-![post app](res/post-app.png)
-
-The response contains the Application id and the id for all the application's services. Now the application and the services are registered to the platform. It's time to deploy the service instances! 
-
-You can always remove or create a new service for the application using the /api/services endpoints
-
-## Deploy an instance of a registered service 
-
-1. Trigger a deployment of a service's instance using `POST /api/service/{serviceid}/instance`
-
-each call to this endpoint generates a new instance of the service
-
-## Monitor the service status
-
-1. With `GET /api/aplications/<userid>` (or simply /api/aplications/ if you're admin) you can check the list of the deployed application.
-2. With `GET /api/services/<appid>` you can check the services attached to an application
-3. With `GET /api/service/<serviceid>` you can check the status for all the instances of <serviceid>
-
-## Undeploy 
-
-- Use `DELETE /api/service/<serviceid>` to delete all the instances of a service
-- Use `DELETE /api/service/<serviceid>/instance/<instance number>` to delete a specific instance of a service
-- Use `DELETE /api/application/<appid>` to delete all together an application with all the services and instances
-
-# Networking 
-
-To enable the communication between services: 
-
-Ensure that each worker node has the [OakestraNet/Node_net_manager](https://github.com/oakestra/oakestra-net/tree/main/node-net-manager) component installed, up and running before running the node engine. 
-
-You can use declare a custom IP Address that uses Round Robin policy. Just declare it using the rr_ip field in the deployment descriptor 
-
-# Frontend?
-
-To make your life easire you can run the Oakestra front-end.
-Check the [Dashboard](https://github.com/oakestra/dashboard) repository for further info.

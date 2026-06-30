@@ -1,6 +1,11 @@
+#!/usr/bin/env bash
+
+version=$(git describe --tags --abbrev=0)
+
 #arm build
-env GOOS=linux GOARCH=arm GOARM=7 go build -o bin/NodeEngine_arm-7 ../NodeEngine.go
+env GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-X 'go_node_engine/cmd.Version=$version'" -o NodeEngine_arm64 ../NodeEngine.go
+env GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-X 'go_node_engine/cmd.Version=$version'" -o nodeengined_arm64 ../internal/daemon/nodeengined.go
 
 #amd build
-env GOOS=linux GOARCH=amd64 go build -o bin/NodeEngine_amd64 ../NodeEngine.go
-
+env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-X 'go_node_engine/cmd.Version=$version'" -o NodeEngine_amd64 ../NodeEngine.go
+env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-X 'go_node_engine/cmd.Version=$version'" -o nodeengined_amd64 ../internal/daemon/nodeengined.go

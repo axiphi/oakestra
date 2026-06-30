@@ -1,21 +1,33 @@
-FROM python:3.8.5-slim-buster
+FROM python:3.10-slim-bookworm
 LABEL org.opencontainers.image.source https://github.com/oakestra/oakestra
 
-ADD requirements.txt /
+RUN apt-get update -y &&\
+    apt-get install -y \
+        curl \
+        python3-dev \
+        build-essential \
+        git
 
-RUN apt-get update && apt-get install -y curl
-RUN apt-get update -y && apt-get install apt-file -y && apt-file update && apt-get install -y python3-dev build-essential
-RUN pip install -r requirements.txt
+COPY requirements.txt /
 
-ADD . /
+# Install appropriate requirements
+ARG LIB_BRANCH=develop
+ENV LIB_BRANCH=${LIB_BRANCH}
 
-# ENV FLASK_APP=cloud_scheduler.py
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . /
+
+RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/clusterRegistration.proto
+
+# ENV FLASK_APP=scheduler.py
 ENV FLASK_ENV=development
 # TRUE for verbose logging
 ENV FLASK_DEBUG=FALSE
 
 ENV SYSTEM_MANAGER_URL=3.120.37.66
 ENV SYSTEM_MANAGER_PORT=10000
+ENV SYSTEM_MANAGER_GRPC_PORT=50052
 
 ENV CLUSTER_SERVICE_MANAGER_URL=localhost
 ENV CLUSTER_SERVICE_MANAGER_PORT=10010
@@ -28,8 +40,8 @@ ENV CLUSTER_SCHEDULER_PORT=5555
 
 ENV MQTT_BROKER_URL=localhost
 ENV MQTT_BROKER_PORT=10003
+ENV MY_PORT=10100
 
-EXPOSE 10000
-EXPOSE 10001
+ENV LOG_LEVEL=INFO
 
-CMD ["python", "cluster_manager.py"]
+CMD gunicorn --bind [::]:${MY_PORT} cluster_manager:app
