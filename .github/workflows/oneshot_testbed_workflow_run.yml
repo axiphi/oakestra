@@ -19,9 +19,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
-          node-version: '16'
+          node-version: '24'
 
       - name: Install dependencies
         run: npm install
@@ -29,6 +29,8 @@ jobs:
 
       - name: Testbed Oneshot Execution ${{ github.event.workflow_run.head_branch }}
         uses: ./.github/actions/awx-deploy
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
         with:
           AWX_URL: ${{ secrets.TOWER_HOST }}
           AWX_TOKEN: ${{ secrets.TOWER_TOKEN }}
