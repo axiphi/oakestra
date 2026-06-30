@@ -22,7 +22,7 @@ inputs:
     required: true
   FORK_REPO:
     description: "The forked repository where the PR was opened"
-    required: true
+    required: false
 
 runs:
   using: "node24"
