@@ -37,4 +37,5 @@ jobs:
           AWX_TEMPLATE_ID: 18 # Job Workflow Template ID for Oneshot Testbed Execution
           PR_BRANCH: ${{ github.event.workflow_run.head_branch }}
           PR_USER: ${{ github.event.workflow_run.head_commit.author.name }}
+          FORK_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
           PR_COMMIT: HEAD
