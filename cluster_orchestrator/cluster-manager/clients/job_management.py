@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ext_requests.scheduler_requests import scheduler_request_deploy
 from oakestra_utils.types.statuses import (
@@ -15,7 +15,7 @@ logger = logging.getLogger("cluster_manager")
 
 
 def mark_inactive_as_failed(running_timeout, node_scheduled_timeout):
-    now = datetime.now().timestamp()
+    now = datetime.now(timezone.utc).timestamp()
     running_cutoff = now - running_timeout
     node_scheduled_cutoff = now - node_scheduled_timeout
 
@@ -182,7 +182,7 @@ def update_instance(job_id, instance_number, data):
 
     # Filter none value
     data = {k: v for k, v in data.items() if v is not None}
-    data["last_modified_timestamp"] = datetime.now().timestamp()
+    data["last_modified_timestamp"] = datetime.now(timezone.utc).timestamp()
 
     if job.get("instance_list", None) is None:
         data["instance_number"] = instance_number
