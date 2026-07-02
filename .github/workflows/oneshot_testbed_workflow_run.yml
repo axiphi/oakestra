@@ -23,19 +23,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Resolve fork repository to pass it to the `awx-deploy` action. This is necessary because the PR may be opened from a forked repository, and we need to know which repository to use for the deployment.
+      # Resolve the fork repository to pass to the `awx-deploy` action.
       - name: Resolve fork repository
         id: fork
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
-          fork_repo=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
-            --jq '.[0].head.repo.full_name // empty')
+          pulls=$(gh api --paginate "repos/${REPO}/pulls?state=open&per_page=100")
+
+          # Prefer an exact head-SHA match; fall back to the head branch name.
+          fork_repo=$(jq -r --arg sha "$HEAD_SHA" \
+            'first(.[] | select(.head.sha == $sha) | .head.repo.full_name) // empty' <<<"$pulls")
           if [ -z "$fork_repo" ]; then
-            echo "No associated PR found for ${HEAD_SHA}; falling back to ${REPO}"
+            fork_repo=$(jq -r --arg ref "$HEAD_BRANCH" \
+              'first(.[] | select(.head.ref == $ref) | .head.repo.full_name) // empty' <<<"$pulls")
+          fi
+          if [ -z "$fork_repo" ]; then
+            echo "No open PR matched sha=${HEAD_SHA} branch=${HEAD_BRANCH}; falling back to ${REPO}"
             fork_repo="${REPO}"
           fi
           echo "Resolved fork repo: $fork_repo"
