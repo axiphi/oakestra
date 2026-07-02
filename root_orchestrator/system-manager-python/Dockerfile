@@ -8,6 +8,8 @@ COPY requirements.txt /
 
 # Oakestra shared libraries are pulled from the repo-local libraries/ folder via the
 # "libraries" named build context (see docker-compose.yml / CI), not from a remote git repo.
+# DL3022 is ignored below: "libraries" is a BuildKit named build context, not a FROM stage.
+# hadolint ignore=DL3022
 COPY --from=libraries . /libraries
 
 # Install appropriate requirements
