@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containerd/containerd"
+	ctd "github.com/containerd/containerd"
 	runcoptions "github.com/containerd/containerd/api/types/runc/options"
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/containers"
@@ -46,7 +46,7 @@ func init() {
 
 // ContainerRuntime is the struct that describes the container runtime
 type ContainerRuntime struct {
-	containerClient *containerd.Client
+	containerClient *ctd.Client
 	killQueue       map[string]*chan bool
 	// Lock specific for the container runtime interactions.
 	// Only one interaction at a time as we have no guarantee the runtime will handle more.
@@ -75,7 +75,7 @@ const CLEANUP_TIMEOUT = 5 * time.Second
 
 // GetContainerdRuntime returns the container runtime client
 func newContainerdRuntime(_ virtrt.RuntimeInfo) virtrt.Runtime {
-	client, err := containerd.New("/run/containerd/containerd.sock")
+	client, err := ctd.New("/run/containerd/containerd.sock")
 	if err != nil {
 		logger.ErrorLogger().Printf("Unable to start the container engine: %v\n", err)
 		return &ContainerRuntime{}
@@ -128,10 +128,10 @@ func findAdditionalRuntimePluginsAt(configPath string) iter.Seq[string] {
 		logger.ErrorLogger().Printf("Unable to parse containerd config file: %v", err)
 		return emptyIterator
 	}
-	for _, ctd := range containerdConfig.Plugins {
-		ctd, ok := ctd.(map[string]interface{})["containerd"].(map[string]interface{})
+	for _, ctdPlugin := range containerdConfig.Plugins {
+		ctdPluginInner, ok := ctdPlugin.(map[string]interface{})["containerd"].(map[string]interface{})
 		if ok {
-			runtimes, ok := ctd["runtimes"].(map[string]interface{})
+			runtimes, ok := ctdPluginInner["runtimes"].(map[string]interface{})
 			if ok {
 				for runtimeName := range runtimes {
 					logger.InfoLogger().Printf("Adding compatibility custom runtime %s configured in containerd config file %s", runtimeName, configPath)
@@ -178,18 +178,18 @@ func (r *ContainerRuntime) Stop() {
 
 // Deploy deploys a service
 func (r *ContainerRuntime) Deploy(service model.Service, statusChangeNotificationHandler func(service model.Service)) error {
-	var image containerd.Image
+	var image ctd.Image
 
 	// pull the given image
 	sysimg, err := r.containerClient.ImageService().Get(r.ctx, service.Image)
 	if err == nil {
-		image = containerd.NewImage(r.containerClient, sysimg)
+		image = ctd.NewImage(r.containerClient, sysimg)
 	} else {
 		logger.ErrorLogger().Printf("Error retrieving the image: %v \n Trying to pull the image online.", err)
 
-		remoteOpt := []containerd.RemoteOpt{containerd.WithPullUnpack}
+		remoteOpt := []ctd.RemoteOpt{ctd.WithPullUnpack}
 		if service.Platform != "" {
-			remoteOpt = append(remoteOpt, containerd.WithPlatform(service.Platform))
+			remoteOpt = append(remoteOpt, ctd.WithPlatform(service.Platform))
 		}
 		image, err = r.containerClient.Pull(r.ctx, service.Image, remoteOpt...)
 
@@ -205,7 +205,7 @@ func (r *ContainerRuntime) Deploy(service model.Service, statusChangeNotificatio
 				resolver := docker_remote.NewResolver(docker_remote.ResolverOptions{
 					Hosts: docker_remote.ConfigureDefaultRegistries(ropts...),
 				})
-				image, err = r.containerClient.Pull(r.ctx, service.Image, containerd.WithPullUnpack, containerd.WithResolver(resolver))
+				image, err = r.containerClient.Pull(r.ctx, service.Image, ctd.WithPullUnpack, ctd.WithResolver(resolver))
 				if err != nil {
 					return err
 				}
@@ -267,7 +267,7 @@ func (r *ContainerRuntime) Undeploy(service string, instance int) error {
 
 func (r *ContainerRuntime) containerCreationRoutine(
 	ctx context.Context,
-	image containerd.Image,
+	image ctd.Image,
 	service model.Service,
 	startup chan bool,
 	errorchan chan error,
@@ -291,24 +291,24 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	}
 
 	// Container options
-	containerOpts := []containerd.NewContainerOpts{}
+	containerOpts := []ctd.NewContainerOpts{}
 	// -- if custom runtime selected, add it to the container
 	if service.Runtime != string(model.CONTAINER_RUNTIME) {
 		if strings.Contains("io.containerd", service.Runtime) {
-			containerOpts = append(containerOpts, containerd.WithRuntime(service.Runtime, &runcoptions.Options{}))
+			containerOpts = append(containerOpts, ctd.WithRuntime(service.Runtime, &runcoptions.Options{}))
 		} else {
 			path, err := exec.LookPath(service.Runtime)
 			logger.InfoLogger().Printf("Using custom runtime %s", path)
 			if err != nil {
 				logger.ErrorLogger().Printf("ERROR: unable to find runtime %s, %v", service.Runtime, err)
 			}
-			containerOpts = append(containerOpts, containerd.WithRuntime(plugin.RuntimeRuncV2, &runcoptions.Options{BinaryName: path}))
+			containerOpts = append(containerOpts, ctd.WithRuntime(plugin.RuntimeRuncV2, &runcoptions.Options{BinaryName: path}))
 		}
 	}
 	// -- add custom snapshotter
-	containerOpts = append(containerOpts, containerd.WithNewSnapshot(fmt.Sprintf("%s-snapshotter", taskId), image))
+	containerOpts = append(containerOpts, ctd.WithNewSnapshot(fmt.Sprintf("%s-snapshotter", taskId), image))
 	// -- add image
-	containerOpts = append(containerOpts, containerd.WithImage(image))
+	containerOpts = append(containerOpts, ctd.WithImage(image))
 
 	// ---- Custom container general oci specs
 	specOpts := []oci.SpecOpts{
@@ -363,7 +363,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	specOpts = append(specOpts, withCustomResolvConf(resolvconfFile))
 
 	// -- add oci SpecOpts to containerOpts
-	containerOpts = append(containerOpts, containerd.WithNewSpec(specOpts...))
+	containerOpts = append(containerOpts, ctd.WithNewSpec(specOpts...))
 
 	// Create the container
 	container, err := r.containerClient.NewContainer(
@@ -397,7 +397,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 		revert(err)
 		return
 	}
-	defer func(ctx context.Context, task containerd.Task) {
+	defer func(ctx context.Context, task ctd.Task) {
 		_ = killTask(ctx, task, container)
 	}(ctx, task)
 
@@ -431,7 +431,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	startup <- true
 
 	// wait for manual task kill or task finish
-	var exitStatus containerd.ExitStatus
+	var exitStatus ctd.ExitStatus
 	select {
 	case exitStatus = <-exitStatusC:
 		// natural exit, fall through to cleanup below
@@ -590,7 +590,7 @@ func (r *ContainerRuntime) forceContainerCleanup() {
 	}
 }
 
-func (r *ContainerRuntime) removeContainer(container containerd.Container) error {
+func (r *ContainerRuntime) removeContainer(container ctd.Container) error {
 	if container == nil {
 		logger.WarnLogger().Printf("Container is nil, nothing to remove")
 		return nil
@@ -717,14 +717,14 @@ func getResolveConfFile() (string, error) {
 	return file.Name(), err
 }
 
-func killTask(ctx context.Context, task containerd.Task, container containerd.Container) error {
+func killTask(ctx context.Context, task ctd.Task, container ctd.Container) error {
 	//removing the task
 	p, err := task.LoadProcess(ctx, task.ID(), nil)
 	if err != nil {
 		logger.ErrorLogger().Printf("ERROR deleting the task, LoadProcess: %v", err)
 		return err
 	}
-	_, err = p.Delete(ctx, containerd.WithProcessKill)
+	_, err = p.Delete(ctx, ctd.WithProcessKill)
 	if err != nil {
 		logger.ErrorLogger().Printf("ERROR deleting the task, Delete: %v", err)
 		return err
@@ -735,22 +735,6 @@ func killTask(ctx context.Context, task containerd.Task, container containerd.Co
 	logger.ErrorLogger().Printf("Task %s terminated", task.ID())
 	return nil
 }
-
-// getContainerByTaskID returns the containerd.Container associated with the given task ID (which is in the format sname.instance.instanceNumber).
-/*
-func (r *ContainerRuntime) getContainerByTaskID(taskid string) (containerd.Container, error) {
-	containers, err := r.containerClient.Containers(r.ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range containers {
-		if c.ID() == taskid {
-			return c, err
-		}
-	}
-	return nil, fmt.Errorf("container not found")
-}
-*/
 
 // gpuInfo holds GPU device information for sorting
 type gpuInfo struct {
