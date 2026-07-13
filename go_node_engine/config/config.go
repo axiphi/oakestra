@@ -7,6 +7,7 @@ import (
 	"go_node_engine/logger"
 	"os"
 	"strings"
+	"sync"
 )
 
 const (
@@ -14,7 +15,10 @@ const (
 	AutoOakNetwork = "default"
 	PublicIPFalse  = PublicIPMode("false")
 	PublicIPAuto   = PublicIPMode("auto")
+)
 
+// Need to use a variable for the config path so that tests can override it
+var (
 	confDir  = "/etc/oakestra"
 	confPath = "/etc/oakestra/conf.json"
 )
@@ -131,14 +135,20 @@ type CSIDriverType struct {
 	Endpoint string `json:"csi_driver_endpoint"`
 }
 
+// mu serializes all reads and writes to confPath within this process.
+var mu sync.Mutex
+
 // Read loads the node configuration from /etc/oakestra/conf.json. If the file
 // is missing or empty it writes and returns the default configuration.
 func Read() (ConfFile, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	data, err := os.ReadFile(confPath)
 	if errors.Is(err, os.ErrNotExist) || (err == nil && len(data) == 0) {
 		logger.InfoLogger().Printf("Config file missing or empty, using default configuration")
 		def := Default()
-		return def, Write(def)
+		return def, writeLocked(def)
 	}
 	if err != nil {
 		return ConfFile{}, err
@@ -147,7 +157,7 @@ func Read() (ConfFile, error) {
 	var clusterConf ConfFile
 	if err := json.Unmarshal(data, &clusterConf); err != nil {
 		logger.ErrorLogger().Printf("Error reading configuration: %v, resetting the file\n", err)
-		if resetErr := Write(Default()); resetErr != nil {
+		if resetErr := writeLocked(Default()); resetErr != nil {
 			return ConfFile{}, resetErr
 		}
 		return ConfFile{}, err
@@ -158,6 +168,13 @@ func Read() (ConfFile, error) {
 // Write persists the given node configuration to /etc/oakestra/conf.json,
 // overwriting any existing content.
 func Write(conf ConfFile) error {
+	mu.Lock()
+	defer mu.Unlock()
+	return writeLocked(conf)
+}
+
+// writeLocked assumes mu is already held by the caller.
+func writeLocked(conf ConfFile) error {
 	data, err := json.Marshal(conf)
 	if err != nil {
 		return err
