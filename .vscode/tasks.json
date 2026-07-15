@@ -218,7 +218,8 @@
                 "root-orchestrator-up",
                 "cluster-orchestrator-up",
                 "remove-cluster-manager",
-                "install-cluster-manager-dependencies"
+                "install-cluster-manager-dependencies",
+                "generate-proto-files"
             ],
             "dependsOrder": "sequence",
         },
@@ -227,7 +228,8 @@
             "dependsOn": [
                 "root-orchestrator-up",
                 "remove-root-manager",
-                "install-root-manager-dependencies"
+                "install-root-manager-dependencies",
+                "generate-proto-files"
             ],
             "dependsOrder": "sequence",
         },
@@ -322,6 +324,12 @@
                 "install-marketplace-manager-dependencies"
             ],
             "dependsOrder": "sequence",
+        },
+        {
+            "label": "generate-proto-files",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} ${workspaceRoot}/scripts/generate_protos.py",
+            "problemMatcher": []
         },
         {
             "label": "cleanup-debug-env",
