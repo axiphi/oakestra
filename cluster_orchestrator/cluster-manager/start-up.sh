@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# docker-compose --file ../docker-compose-amd64.yml up -d
-
-# create virtualenv
-virtualenv --clear -p python3 .venv
-source .venv/bin/activate
-
-.venv/bin/pip install -r requirements.txt
+uv venv
+uv sync
 
 export FLASK_ENV=development
 export FLASK_DEBUG=True # TRUE for logging

@@ -119,7 +119,7 @@ class SchedulingController(MethodView):
             )
 
         # update network component
-        network_notify_deployment(job_id, job)
+        network_notify_deployment(job)
 
         # publish job
         mqtt_publish_edge_deploy(node_id, job, instance_number)

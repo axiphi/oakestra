@@ -1,32 +1,18 @@
 import logging
-import os
 
 import requests
 
+from config import SERVICE_MANAGER_ADDR
+from types.types import Job
+
 logger = logging.getLogger("cluster_manager")
 
-SERVICE_MANAGER_ADDR = (
-    "http://"
-    + os.environ.get("CLUSTER_SERVICE_MANAGER_ADDR")
-    + ":"
-    + os.environ.get("CLUSTER_SERVICE_MANAGER_PORT")
-)
 
-
-def network_notify_deployment(job_id, job):
-    job["_id"] = str(job["_id"])
+def network_notify_deployment(job: Job) -> None:
     try:
         requests.post(
             SERVICE_MANAGER_ADDR + "/api/net/deployment",
-            json={"job_name": job["job_name"]},
+            json={"job_name": job.job_name},
         )
     except requests.exceptions.RequestException:
         logger.error("Calling Service Manager /api/net/deployment not successful.")
-
-
-def network_notify_migration(job_id, job):
-    pass
-
-
-def network_notify_undeployment(job_id, job):
-    pass

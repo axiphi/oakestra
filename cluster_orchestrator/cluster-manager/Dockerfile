@@ -1,24 +1,23 @@
-FROM python:3.10-slim-bookworm
+FROM ghcr.io/astral-sh/uv:python3.10-trixie
 LABEL org.opencontainers.image.source https://github.com/oakestra/oakestra
 
-RUN apt-get update -y &&\
-    apt-get install -y \
-        curl \
-        python3-dev \
-        build-essential \
-        git
+RUN apt-get update --yes \
+    && apt-get install --yes --no-install-recommends \
+      curl \
+      build-essential \
+      git
 
-COPY requirements.txt /
+COPY . /app
+WORKDIR /app
+
+ENV UV_NO_DEV=1
+RUN uv sync --locked
 
 # Install appropriate requirements
 ARG LIB_BRANCH=develop
 ENV LIB_BRANCH=${LIB_BRANCH}
 
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . /
-
-RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/clusterRegistration.proto
+RUN uv run -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. --pyi_out=. proto/clusterRegistration.proto
 
 # ENV FLASK_APP=scheduler.py
 ENV FLASK_ENV=development

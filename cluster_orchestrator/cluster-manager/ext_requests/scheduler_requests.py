@@ -1,32 +1,24 @@
 import logging
-import os
 
 import requests
 
+from config import SCHEDULER_ADDR
+from types.types import Job
+
 logger = logging.getLogger("cluster_manager")
 
-SCHEDULER_ADDR = (
-    "http://"
-    + os.environ.get("CLUSTER_SCHEDULER_URL")
-    + ":"
-    + str(os.environ.get("CLUSTER_SCHEDULER_PORT"))
-)
 
-
-def scheduler_request_deploy(job, instance_number):
-    request_addr = SCHEDULER_ADDR + "/api/calculate/deploy"
+def scheduler_request_deploy(
+    job: Job,
+    instance_number: int
+) -> None:
     try:
-        job["_id"] = job["_id"] + "/" + str(instance_number)
-        requests.post(request_addr, json=job)
+        # TODO: weird hack maybe improve API?
+        copied_job = job.model_copy(deep=True)
+        copied_job.id = job.require_id() + "/" + str(instance_number)
+        requests.post(
+            SCHEDULER_ADDR + "/api/calculate/deploy",
+            json=copied_job.model_dump(by_alias=True)
+        )
     except requests.exceptions.RequestException:
-        logger.error("Calling scheduler", request_addr, "not successful.")
-
-
-def scheduler_request_status():
-    request_addr = SCHEDULER_ADDR + "/status"
-    try:
-        response = requests.get(request_addr)
-        return "Scheduler Request successfull.", response.status_code
-    except requests.exceptions.RequestException:
-        logger.error("Calling Cloud Scheduler /status not successful.")
-        return "Scheduler Request failed."
+        logger.error("Calling scheduler", "/api/calculate/deploy", "not successful.")

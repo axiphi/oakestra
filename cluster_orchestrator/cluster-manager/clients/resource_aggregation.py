@@ -1,4 +1,6 @@
 import logging
+from collections import defaultdict
+from typing import Dict, Any, List, Optional, Callable, TypeAlias, Union
 
 from resource_abstractor_client import candidate_operations
 
@@ -14,37 +16,56 @@ counters = {
     "gpu_percent": 0,
 }
 
+ResourceValue: TypeAlias = List[Any] | float | int | str
+ResourceAccumulator: TypeAlias = Optional[List[Any] | float | int]
 
-def default_aggregator(w, acc, key):
+ResourceDict: TypeAlias = Dict[str, ResourceValue]
+ResourceAggregator: TypeAlias = Union[
+    Callable[[ResourceDict, ResourceAccumulator], ResourceAccumulator],
+    Callable[[ResourceDict], ResourceAccumulator],
+]
+
+
+def default_aggregator(w: ResourceDict, acc: ResourceAccumulator, key: str) -> ResourceAccumulator:
     val = w.get(key)
     if val is None:
         return acc
+
     if isinstance(val, (int, float)):
         if key.endswith("_percent") or key.endswith("_average"):
-            res = acc if acc is not None else 0.0
             return average_aggregator(w, acc, key, custom_counter=key)
 
-        res = acc if acc is not None else 0
+        res = acc if acc is not None else 0.0
         return res + val
+
+
     if acc is None:
         acc = []
+    elif not isinstance(acc, list):
+        raise RuntimeError("Tried to use non-numeric resource with numeric accumulator")
+
     if isinstance(val, list):
         acc.extend(val)
         return acc
+
     acc.append(val)
     return acc
 
-
-def average_aggregator(w, acc, key, **kwargs):
+def average_aggregator(w: ResourceDict, acc: ResourceAccumulator, key: str, custom_counter: Optional[str] = None) -> ResourceAccumulator:
     val = w.get(key)
 
-    # Skip zero values when averaging
-    if val is None or float(val) == 0:
+    if val is None:
         return acc
 
-    custom_counter = kwargs.get("custom_counter")
-    counter_key = custom_counter if custom_counter is not None else key
+    if isinstance(val, list):
+        raise RuntimeError("Tried to use average_aggregator with list resource value")
 
+    float_val = float(val)
+    # Skip zero values when averaging
+    if float_val == 0.0:
+        return acc
+
+    counter_key = custom_counter if custom_counter is not None else key
     if counter_key not in counters:
         counters[counter_key] = 0
 
@@ -53,13 +74,15 @@ def average_aggregator(w, acc, key, **kwargs):
 
     if acc is None:
         acc = 0.0
+    elif isinstance(acc, list):
+        raise RuntimeError("Tried to use average_aggregator with list accumulator")
 
-    acc += (float(val) - acc) / n
+    acc += (float_val - acc) / n
 
     return acc
 
 
-def csi_drivers_aggregator(w, acc=None):
+def csi_drivers_aggregator(w: ResourceDict, acc: ResourceAccumulator) -> ResourceAccumulator:
     """Merge csi_drivers from a worker into a deduplicated list of driver names.
 
     Node Engine advertises drivers as objects: {csi_driver_name, csi_driver_endpoint}.
@@ -68,8 +91,12 @@ def csi_drivers_aggregator(w, acc=None):
     val = w.get("csi_drivers")
     if val is None:
         return acc
+
     if acc is None:
         acc = []
+    elif not isinstance(acc, list):
+        raise RuntimeError("Tried to use csi_drivers_aggregator with non-list accumulator")
+
     if isinstance(val, list):
         for item in val:
             if isinstance(item, dict):
@@ -88,7 +115,7 @@ def csi_drivers_aggregator(w, acc=None):
 # where aggregation scheme outlines how this resource should be aggregated.
 # Every aggregation schema is a function that takes an accumulator and a worker
 # and returns a new accumulator: acc, w -> acc
-canonical_resources = {
+canonical_resources: Dict[str, ResourceAggregator] = {
     "cpu_percent": lambda w, acc=0.0: average_aggregator(w, acc, "cpu_percent"),
     "vcpus": lambda w, acc=0: default_aggregator(w, acc, "vcpus"),
     "memory_percent": lambda w, acc=0.0: average_aggregator(w, acc, "memory_percent"),
@@ -102,11 +129,11 @@ canonical_resources = {
     "virtualization": lambda w, acc=None: default_aggregator(w, acc, "virtualization"),
     "supported_addons": lambda w, acc=None: default_aggregator(w, acc, "supported_addons"),
     "csi_drivers": lambda w, acc=None: csi_drivers_aggregator(w, acc),
-    "active_nodes": lambda w, acc=0: acc if (w is None or w == {}) else acc + 1,
+    "active_nodes": lambda w, acc=0: acc if not w else acc + 1,
 }
 
 
-def aggregate_workers(workers):
+def aggregate_workers(workers: List[ResourceDict]) -> Dict[str, ResourceAccumulator]:
     # reset global counters
     for key in counters.keys():
         counters[key] = 0
@@ -140,23 +167,27 @@ def aggregate_workers(workers):
     return result
 
 
-def aggregate_info(time_interval):
+
+AggregateInfo: TypeAlias = Dict[str, Union[ResourceAccumulator, Dict[str, Dict[str, ResourceAccumulator]]]]
+
+
+def aggregate_info() -> AggregateInfo:
     workers = candidate_operations.get_candidates(active=True)
 
     if workers is None:
         return {}
 
-    result = aggregate_workers(workers)
+    result: AggregateInfo = aggregate_workers(workers)
 
-    aggregation_per_arch = {}
+    workers_by_arch: Dict[str, List[Dict[str, ResourceValue]]] = defaultdict(list)
     for w in workers:
         arch = w.get("architecture")
         if arch is None:
             continue
-        aggregation_per_arch.setdefault(arch, []).append(w)
+        workers_by_arch[arch].append(w)
 
     result["aggregation_per_architecture"] = {
-        arch: aggregate_workers(workers) for arch, workers in aggregation_per_arch.items()
+        arch: aggregate_workers(workers) for arch, workers in workers_by_arch.items(),
     }
 
     return result

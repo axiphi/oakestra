@@ -7,6 +7,8 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from resource_abstractor_client import candidate_operations
 
+from config import CONFIG
+
 logger = logging.getLogger("cluster_manager")
 
 # ........ Functions for job management ...............#
@@ -42,6 +44,6 @@ class ServiceController(MethodView):
         worker_id = str(worker["_id"])
         response = {
             "id": str(worker_id),
-            "MQTT_BROKER_PORT": os.environ.get("MQTT_BROKER_PORT"),
+            "MQTT_BROKER_PORT": CONFIG.mqtt_broker_port,
         }
         return Response(json_util.dumps(response), mimetype="application/json")

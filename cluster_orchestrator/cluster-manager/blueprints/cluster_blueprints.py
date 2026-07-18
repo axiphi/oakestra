@@ -6,6 +6,8 @@ from flask import Response
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
+from config import CONFIG
+
 logger = logging.getLogger("cluster_manager")
 
 clusterblp = Blueprint(
@@ -26,8 +28,8 @@ class ClusterStatusController(MethodView):
     def get(self):
         logger.debug("Incoming Request GET /api/cluster/status")
         response = {
-            "cluster_name": config.MY_CHOSEN_CLUSTER_NAME,
-            "cluster_id": config.MY_ASSIGNED_CLUSTER_ID,
-            "connected_to_root": config.MY_ASSIGNED_CLUSTER_ID is not None,
+            "cluster_name": CONFIG.cluster_name,
+            "cluster_id": config.assigned_cluster_id,
+            "connected_to_root": config.assigned_cluster_id is not None,
         }
         return Response(json_util.dumps(response), mimetype="application/json")
