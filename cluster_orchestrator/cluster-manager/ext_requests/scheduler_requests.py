@@ -3,7 +3,7 @@ import logging
 import requests
 
 from config import SCHEDULER_ADDR
-from types.types import Job
+from models.job import Job
 
 logger = logging.getLogger("cluster_manager")
 

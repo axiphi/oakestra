@@ -39,7 +39,7 @@ class ServiceController(MethodView):
         worker = candidate_operations.create_candidate(data)
         if worker is None:
             logger.error("Failed to register node")
-            abort(500, "Failed to register node")
+            abort(500, RuntimeError("Failed to register node"))
 
         worker_id = str(worker["_id"])
         response = {

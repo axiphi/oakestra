@@ -15,7 +15,7 @@ from oakestra_utils.types.statuses import (
     PositiveSchedulingStatus,
     convert_to_status,
 )
-from types.types import Job, JobInstance
+from models.job import Job, JobInstance
 
 logger = logging.getLogger("cluster_manager")
 

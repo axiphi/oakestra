@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Any, cast
 
 from resource_abstractor_client import candidate_operations, job_operations
-from clients.mqtt_client import mqtt_publish_edge_delete
 
 from ext_requests.scheduler_requests import scheduler_request_deploy
 from oakestra_utils.types.statuses import (
@@ -13,7 +12,7 @@ from oakestra_utils.types.statuses import (
     PositiveSchedulingStatus,
     convert_to_status,
 )
-from types.types import AnyJob, Job, JobInstance, JobInstanceResources
+from models.job import AnyJob, Job, JobInstance, JobInstanceResources
 
 logger = logging.getLogger("cluster_manager")
 
@@ -151,7 +150,7 @@ def update_status(
     elif all(instance.status == DeploymentStatus.RUNNING.value for instance in instances):
         job.status = status
 
-    job_operations.update_job(job_id, cast(Any, job))
+    job_operations.update_job(job_id, job.model_dump(by_alias=True))
 
 
 def update_instance_resources(
@@ -172,7 +171,7 @@ def update_instance_resources(
         DeploymentStatus.RUNNING.value,
         None, # I don't believe resources every carry a status detail
     )
-    return update_instance(job_id, int(instance_number), JobInstance(
+    return update_instance(job_id, instance_number, JobInstance(
         cpu_percent=resources.cpu_percent,
         memory_percent=resources.memory_percent,
         disk=resources.disk,
@@ -284,6 +283,7 @@ def delete_job_instance(
             worker_id = instance.worker_id
 
             if worker_id is not None:
+                from clients.mqtt_client import mqtt_publish_edge_delete
                 mqtt_publish_edge_delete(
                     worker_id,
                     job.require_job_name(),

@@ -187,7 +187,7 @@ def aggregate_info() -> AggregateInfo:
         workers_by_arch[arch].append(w)
 
     result["aggregation_per_architecture"] = {
-        arch: aggregate_workers(workers) for arch, workers in workers_by_arch.items(),
+        arch: aggregate_workers(workers) for arch, workers in workers_by_arch.items()
     }
 
     return result

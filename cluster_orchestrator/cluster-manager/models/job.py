@@ -142,3 +142,14 @@ class JobInstanceResources(BaseModel):
         if value == "":
             return None
         return value
+
+    def require_job_name(self) -> str:
+        if not self.job_name:
+            raise RuntimeError("Expected instance resources to have job_name")
+        return self.job_name
+
+
+    def require_instance(self) -> int:
+        if not self.instance:
+            raise RuntimeError("Expected instance resources to have instance")
+        return self.instance

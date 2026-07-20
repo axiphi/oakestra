@@ -70,8 +70,8 @@ def launch_background_jobs(assigned_cluster_id: str):
         "interval",
         seconds=BACKGROUND_JOB_INTERVAL,
         kwargs={
-            "my_id": assigned_cluster_id,
-            "time_interval": 2 * BACKGROUND_JOB_INTERVAL,
+            "assigned_cluster_id": assigned_cluster_id,
+            "time_interval_seconds": 2 * BACKGROUND_JOB_INTERVAL,
         },
     )
 

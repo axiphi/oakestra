@@ -9,6 +9,8 @@ from ext_requests.network_manager_requests import network_notify_deployment
 from flask import Response, request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+
+from models.job import Job
 from oakestra_utils.types.statuses import (
     PositiveSchedulingStatus,
     convert_to_status,
@@ -43,7 +45,9 @@ class ServiceController(MethodView):
         content_type="application/json",
     )
     def post(self, job_id, instance_number):
-        job = request.json  # contains job_id and job_description
+        job_obj = request.json  # contains job_id and job_description
+        job = Job.model_validate(job_obj)
+        instance_number = int(instance_number)
 
         try:
             logger.info(f"Received deployment request for instance {instance_number} of {job}")
@@ -51,7 +55,7 @@ class ServiceController(MethodView):
         except Exception as e:
             logger.error(f"Deployment Failed: {e}")
             logger.error(f"{traceback.format_exc()}")
-            abort(500, "Failed to deploy service")
+            abort(500, RuntimeError("Failed to deploy service"))
 
         return Response(json_util.dumps({"status": "ok"}), mimetype="application/json")
 
@@ -67,12 +71,14 @@ class ServiceController(MethodView):
         """
         logger.info("Incoming Request /api/delete/ - to delete task...")
 
+        instance_number = int(instance_number)
+
         try:
-            job_management.delete_job_instance(job_id, int(instance_number), erase=True)
+            job_management.delete_job_instance(job_id, instance_number, erase=True)
         except Exception as e:
             logger.error(f"Failed to delete service {job_id}: {e}")
             logger.error(f"{traceback.format_exc()}")
-            abort(500, "Failed to delete service")
+            abort(500, RuntimeError("Failed to delete service"))
 
         return Response(json_util.dumps({"status": "ok"}), mimetype="application/json")
 
@@ -89,13 +95,13 @@ class SchedulingController(MethodView):
         logger.debug(data)
         id = data.get("job_id").split("/")
         job_id = id[0]
-        instance_number = id[1]
+        instance_number = int(id[1])
         node_id = data.get("candidate_id")
         logger.info(
             "Received scheduling result for job "
             + job_id
             + " instance "
-            + instance_number
+            + str(instance_number)
             + ". Result: "
             + node_id
         )
@@ -106,17 +112,18 @@ class SchedulingController(MethodView):
             return Response(json_util.dumps({"status": "ok"}), mimetype="application/json")
 
         # update job instance
-        job_management.update_instance_node(job_id, int(instance_number), node_id)
+        job_management.update_instance_node(job_id, instance_number, node_id)
         job_management.update_status(
-            job_id, int(instance_number), PositiveSchedulingStatus.NODE_SCHEDULED.value
+            job_id, instance_number, PositiveSchedulingStatus.NODE_SCHEDULED.value
         )
 
-        job = job_operations.get_job_by_id(job_id)
-        if job is None:
+        job_obj = job_operations.get_job_by_id(job_id)
+        if job_obj is None:
             logger.error("Job " + job_id + " has been deleted")
             return Response(
                 json_util.dumps({"status": "job_not_found"}), mimetype="application/json"
             )
+        job = Job.model_validate(job_obj)
 
         # update network component
         network_notify_deployment(job)

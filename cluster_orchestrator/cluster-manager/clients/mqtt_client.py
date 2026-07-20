@@ -11,7 +11,7 @@ from typing_extensions import assert_type
 from clients.job_management import update_instance_resources, update_deployed_instance_worker
 from config import CONFIG
 from oakestra_utils.types.statuses import convert_to_status
-from types.types import Job
+from models.job import Job, JobInstanceResources
 
 logger = logging.getLogger("cluster_manager")
 
@@ -38,8 +38,9 @@ def handle_logging(_client: Any, _userdata: Any, level: str, buf: Any) -> None:
         logger.info("Error: {}".format(buf))
 
 
+# TODO: add type validation for all message types
 def handle_mqtt_message(_client: Any, _userdata: Any, message: MQTTMessage):
-    payload_bytes: bytes = assert_type(bytes, message.payload)
+    payload_bytes: bytes = assert_type(message.payload, bytes)
 
     topic = message.topic
     payload_str = payload_bytes.decode()
@@ -69,30 +70,31 @@ def handle_mqtt_message(_client: Any, _userdata: Any, message: MQTTMessage):
         job_name = payload.get("sname")
         status = convert_to_status(payload.get("status"))
         status_detail = payload.get("status_detail", None)
-        instance = payload.get("instance")
+        instance = int(payload.get("instance"))
         publicip = payload.get("publicip", "--")
         update_deployed_instance_worker(job_name, instance, status.value, status_detail, publicip)
 
 
     if re_job_resources_topic is not None:
         services = payload.get("services")
-        for service in services:
+        for instance_resources_obj in services:
+            instance_resources = JobInstanceResources.model_validate(instance_resources_obj)
+
             try:
                 # If unable to update then worker has outdated information
                 # and service must be undeployed
                 if (
-                    update_instance_resources(
-                        service.get("job_name"),
-                        service.get("instance", 0),
-                        service
+                    not update_instance_resources(
+                        instance_resources.job_name,
+                        instance_resources.require_instance(),
+                        instance_resources
                     )
-                    is None
                 ):
                     mqtt_publish_edge_delete(
                         client_id,
-                        service.get("job_name"),
-                        service.get("instance"),
-                        service.get("virtualization"),
+                        instance_resources.require_job_name(),
+                        instance_resources.require_instance(),
+                        instance_resources.virtualization
                     )
             except Exception as e:
                 logger.error("MQTT - unable to update service resources")
@@ -149,7 +151,7 @@ def mqtt_publish_edge_delete(
         worker_id: str,
         job_name: str,
         instance_number: int,
-        runtime="docker"
+        runtime: Optional[str]="docker"
 ):
     topic = "nodes/" + worker_id + "/control/delete"
 
