@@ -260,5 +260,6 @@ func (r *Runtime) reportResources(notifyHandler func(res []model.Resources)) {
 		})
 	}
 
+	resourcesList = append(resourcesList, model.InstantiatingResources(model.CROSVM_RUNTIME)...)
 	notifyHandler(resourcesList)
 }

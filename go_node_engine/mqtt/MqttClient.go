@@ -7,9 +7,7 @@ import (
 	"go_node_engine/logger"
 	"go_node_engine/model"
 	"go_node_engine/virtualization"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -17,11 +15,6 @@ import (
 
 // TOPICS is a map of topics and their handlers
 var TOPICS = make(map[string]mqtt.MessageHandler)
-
-// Services pulling an image have no containerd entry yet, so the resource
-// monitor can't pick them up. Track them here and inject into each
-// ReportServiceResources call to keep the cluster heartbeat alive.
-var instantiatingServices sync.Map
 
 var clientID = ""
 var mainMqttClient mqtt.Client
@@ -143,12 +136,11 @@ func deployHandler(client mqtt.Client, msg mqtt.Message, runtimeManager *virtual
 	// Without this, a long image pull looks like a dead worker to the cluster.
 	service.Status = model.SERVICE_INSTANTIATION
 	ReportServiceStatus(service)
-	key := service.Sname + "/" + strconv.Itoa(service.Instance)
-	instantiatingServices.Store(key, service)
+	model.TrackInstantiating(service)
 
 	//handle deployment in background
 	go func() {
-		defer instantiatingServices.Delete(key)
+		defer model.UntrackInstantiating(service.Sname, service.Instance)
 		runtime := runtimeManager.GetRuntime(model.RuntimeType(service.Runtime))
 		err = runtime.Deploy(service, ReportServiceStatus)
 		service.Status = model.SERVICE_CREATED
@@ -204,20 +196,8 @@ func ReportServiceStatus(service model.Service) {
 	publishToBroker("job", string(jsonmsg))
 }
 
-// ReportServiceResources reports the resources of the services. In-flight
-// instantiations are appended so the cluster doesn't time them out during
-// a long image pull.
+// ReportServiceResources reports the resources of the services
 func ReportServiceResources(services []model.Resources) {
-	instantiatingServices.Range(func(_, v any) bool {
-		s := v.(model.Service)
-		services = append(services, model.Resources{
-			Sname:    s.Sname,
-			Instance: s.Instance,
-			Runtime:  s.Runtime,
-			Status:   model.SERVICE_INSTANTIATION,
-		})
-		return true
-	})
 	type ServiceResources struct {
 		Services []model.Resources `json:"services"`
 	}

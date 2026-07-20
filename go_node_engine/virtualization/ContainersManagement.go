@@ -574,6 +574,7 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Status:   model.SERVICE_RUNNING,
 			})
 		}
+		resourceList = append(resourceList, model.InstantiatingResources(model.CONTAINER_RUNTIME)...)
 		//NOTIFY WITH THE CURRENT CONTAINERS STATUS
 		notifyHandler(resourceList)
 	}

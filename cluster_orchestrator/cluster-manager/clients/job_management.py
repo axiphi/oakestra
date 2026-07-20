@@ -147,7 +147,7 @@ def update_deployed_instance_job(job_name, instance_number, service, worker_id):
         return None
 
     job_id = jobs[0].get("_id")
-    reported_status = service.get("status", DeploymentStatus.RUNNING.value)
+    reported_status = service.get("status", DeploymentStatus.UNKNOWN.value)
     update_status(
         job_id,
         int(instance_number),

@@ -594,6 +594,7 @@ func (r *UnikernelRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 			})
 
 		}
+		resourceList = append(resourceList, model.InstantiatingResources(model.UNIKERNEL_RUNTIME)...)
 		notifyHandler(resourceList)
 	}
 }

@@ -71,6 +71,10 @@ class DeploymentStatus(Status):
 
     UNDEPLOYED = "UNDEPLOYED"  # 🟪
 
+    # Fallback for a reported status that is missing or unrecognized, so the
+    # problem is diagnosable instead of silently masked as RUNNING.
+    UNKNOWN = "UNKNOWN"
+
 
 def convert_to_status(name: Optional[str]) -> Optional[Status]:
     """Converts a given string to its matching Status enum
