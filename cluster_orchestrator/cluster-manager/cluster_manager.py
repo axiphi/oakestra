@@ -72,9 +72,7 @@ def background_job_send_aggregated_information_to_sm():
         },
     )
     # job_re_deploy_dead_jobs
-    scheduler.add_job(
-        re_deploy_dead_jobs_routine, "interval", seconds=config.AGGREGATION_INTERVAL
-    )
+    scheduler.add_job(re_deploy_dead_jobs_routine, "interval", seconds=config.AGGREGATION_INTERVAL)
 
     scheduler.start()
 
