@@ -104,11 +104,11 @@ def create_new_job_instance(job: Job, instance_number: int) -> Job:
 
 
 def update_deployed_instance_worker(
-        job_name: str,
+        job_name: Optional[str],
         instance_number: int,
-        status: str,
+        status: Optional[str],
         status_detail: Optional[str],
-        public_ip: str
+        public_ip: Optional[str]
 ) -> None:
     job_objs: List[Any] = job_operations.get_jobs(job_name=job_name)
     if not job_objs:

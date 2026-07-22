@@ -119,7 +119,7 @@ class JobInstanceResources(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     job_name: Optional[str] = None
-    instance: Optional[int] = None
+    instance_number: Optional[int] = Field(default=None, alias="instance")
     virtualization: Optional[str] = None
     logs: Optional[str] = None
 
@@ -149,7 +149,7 @@ class JobInstanceResources(BaseModel):
         return self.job_name
 
 
-    def require_instance(self) -> int:
-        if not self.instance:
+    def require_instance_number(self) -> int:
+        if not self.instance_number:
             raise RuntimeError("Expected instance resources to have instance")
-        return self.instance
+        return self.instance_number

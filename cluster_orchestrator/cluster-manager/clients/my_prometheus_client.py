@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 from prometheus_client import Gauge
 
 metrics = {}
-jobs = {}
 cluster_id: Optional[str] = None
 logger: Optional[logging.Logger] = None
 

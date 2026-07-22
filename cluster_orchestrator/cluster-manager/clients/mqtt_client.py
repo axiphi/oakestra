@@ -10,8 +10,8 @@ from typing_extensions import assert_type
 
 from clients.job_management import update_instance_resources, update_deployed_instance_worker
 from config import CONFIG
-from oakestra_utils.types.statuses import convert_to_status
-from models.job import Job, JobInstanceResources
+from models.job import Job
+from models.mqtt import NodeJobMessage, NodeJobResourceMessage, NodeInformationMessage
 
 logger = logging.getLogger("cluster_manager")
 
@@ -54,51 +54,62 @@ def handle_mqtt_message(_client: Any, _userdata: Any, message: MQTTMessage):
     client_id = topic_split[1]
     payload = json.loads(payload_str)
 
-    # if topic starts with nodes and ends with information
     if re_nodes_information_topic is not None:
+        handle_node_information_message(client_id, payload)
+
+    elif re_job_deployment_topic is not None:
+        handle_node_job_message(payload)
+
+    elif re_job_resources_topic is not None:
+        handle_node_job_resources_message(client_id, payload)
+
+
+def handle_node_information_message(client_id: str, payload: Any):
+    message = NodeInformationMessage.model_validate(payload)
+
+    updated = candidate_operations.update_candidate_information(
+        client_id,
+        message.model_dump(by_alias=True, exclude_none=True)
+    )
+    if updated is None:
         mqtt = ensure_mqtt()
+        mqtt.publish(
+            "nodes/" + client_id + "/control/error",
+            json.dumps({"message": "Node not registered to the cluster"}),
+        )
 
-        nonnull_payload = {k: v for k, v in payload.items() if v is not None}
-        updated = candidate_operations.update_candidate_information(client_id, nonnull_payload)
-        if updated is None:
-            mqtt.publish(
-                "nodes/" + client_id + "/control/error",
-                json.dumps({"message": "Node not registered to the cluster"}),
+
+def handle_node_job_message(payload: Any):
+    message = NodeJobMessage.model_validate(payload)
+
+    update_deployed_instance_worker(
+        message.job_name,
+        message.instance_number,
+        message.status,
+        message.status_detail,
+        message.public_ip
+    )
+
+
+def handle_node_job_resources_message(client_id: str, payload: Any):
+    message = NodeJobResourceMessage.model_validate(payload)
+
+    for resources_entry in message.instance_resources:
+        # If unable to update then worker has outdated information
+        # and service must be undeployed
+        if (
+                not update_instance_resources(
+                    resources_entry.job_name,
+                    resources_entry.require_instance_number(),
+                    resources_entry
+                )
+        ):
+            mqtt_publish_edge_delete(
+                client_id,
+                resources_entry.require_job_name(),
+                resources_entry.require_instance_number(),
+                resources_entry.virtualization
             )
-
-    if re_job_deployment_topic is not None:
-        job_name = payload.get("sname")
-        status = convert_to_status(payload.get("status"))
-        status_detail = payload.get("status_detail", None)
-        instance = int(payload.get("instance"))
-        publicip = payload.get("publicip", "--")
-        update_deployed_instance_worker(job_name, instance, status.value, status_detail, publicip)
-
-
-    if re_job_resources_topic is not None:
-        services = payload.get("services")
-        for instance_resources_obj in services:
-            instance_resources = JobInstanceResources.model_validate(instance_resources_obj)
-
-            try:
-                # If unable to update then worker has outdated information
-                # and service must be undeployed
-                if (
-                    not update_instance_resources(
-                        instance_resources.job_name,
-                        instance_resources.require_instance(),
-                        instance_resources
-                    )
-                ):
-                    mqtt_publish_edge_delete(
-                        client_id,
-                        instance_resources.require_job_name(),
-                        instance_resources.require_instance(),
-                        instance_resources.virtualization
-                    )
-            except Exception as e:
-                logger.error("MQTT - unable to update service resources")
-                logger.error(e)
 
 
 def initialize_mqtt():
@@ -106,7 +117,6 @@ def initialize_mqtt():
 
     global _mqtt
     _mqtt = mqtt
-
 
     mqtt.on_connect = handle_connect
     mqtt.on_message = handle_mqtt_message
