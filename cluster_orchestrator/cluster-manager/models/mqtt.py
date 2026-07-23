@@ -13,8 +13,8 @@ class NodeJobMessage(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     job_name: Optional[str] = Field(alias="sname", default=None)
-    status: Optional[str]
-    status_detail: Optional[str]
+    status: Optional[str] = None
+    status_detail: Optional[str] = None
     instance_number: int = Field(alias="instance")
     public_ip: Optional[str] = Field(alias="publicip", default=None)
 
@@ -35,4 +35,4 @@ class NodeJobMessage(BaseModel):
 class NodeJobResourceMessage(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    instance_resources: List[JobInstanceResources] = Field(alias="services", default_factory=lambda: [])
+    instance_resources: List[JobInstanceResources] = Field(alias="services", default=[])

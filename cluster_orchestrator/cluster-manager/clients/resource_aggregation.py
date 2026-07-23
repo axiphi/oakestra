@@ -1,193 +1,97 @@
-import logging
 from collections import defaultdict
-from typing import Dict, Any, List, Optional, Callable, TypeAlias, Union
+from typing import Dict, Any, List, Optional, Callable, cast
 
 from resource_abstractor_client import candidate_operations
 
-logger = logging.getLogger("cluster_manager")
-
-CLUSTER_FIELDS = {"_id", "ip", "port", "candidate_name", "candidate_location"}
-
-counters = {
-    "cpu_percent": 0,
-    "memory_percent": 0,
-    "vram_percent": 0,
-    "gpu_temp": 0,
-    "gpu_percent": 0,
-}
-
-ResourceValue: TypeAlias = List[Any] | float | int | str
-ResourceAccumulator: TypeAlias = Optional[List[Any] | float | int]
-
-ResourceDict: TypeAlias = Dict[str, ResourceValue]
-ResourceAggregator: TypeAlias = Union[
-    Callable[[ResourceDict, ResourceAccumulator], ResourceAccumulator],
-    Callable[[ResourceDict], ResourceAccumulator],
-]
+from models.worker import WorkerMetrics, AggregatedWorkerMetrics
 
 
-def default_aggregator(w: ResourceDict, acc: ResourceAccumulator, key: str) -> ResourceAccumulator:
-    val = w.get(key)
-    if val is None:
-        return acc
-
-    if isinstance(val, (int, float)):
-        if key.endswith("_percent") or key.endswith("_average"):
-            return average_aggregator(w, acc, key, custom_counter=key)
-
-        res = acc if acc is not None else 0.0
-        return res + val
+def sum_int_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[int]]) -> int:
+    values: List[int] = [cast(int, value_fn(worker)) for worker in workers if value_fn(worker) is not None]
+    return sum(values)
 
 
-    if acc is None:
-        acc = []
-    elif not isinstance(acc, list):
-        raise RuntimeError("Tried to use non-numeric resource with numeric accumulator")
-
-    if isinstance(val, list):
-        acc.extend(val)
-        return acc
-
-    acc.append(val)
-    return acc
-
-def average_aggregator(w: ResourceDict, acc: ResourceAccumulator, key: str, custom_counter: Optional[str] = None) -> ResourceAccumulator:
-    val = w.get(key)
-
-    if val is None:
-        return acc
-
-    if isinstance(val, list):
-        raise RuntimeError("Tried to use average_aggregator with list resource value")
-
-    float_val = float(val)
-    # Skip zero values when averaging
-    if float_val == 0.0:
-        return acc
-
-    counter_key = custom_counter if custom_counter is not None else key
-    if counter_key not in counters:
-        counters[counter_key] = 0
-
-    counters[counter_key] += 1
-    n = counters[counter_key]
-
-    if acc is None:
-        acc = 0.0
-    elif isinstance(acc, list):
-        raise RuntimeError("Tried to use average_aggregator with list accumulator")
-
-    acc += (float_val - acc) / n
-
-    return acc
+def average_float_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[float]]) -> float:
+    values: List[float] = [cast(float, value_fn(worker)) for worker in workers if value_fn(worker) is not None]
+    return sum(values) / len(values)
 
 
-def csi_drivers_aggregator(w: ResourceDict, acc: ResourceAccumulator) -> ResourceAccumulator:
+def concatenate_single_list_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Any]) -> List[Any]:
+    result = []
+    for worker in workers:
+        result.append(value_fn(worker))
+    return result
+
+
+def concatenate_multi_list_metric(
+    workers: List[WorkerMetrics],
+    value_fn: Callable[[WorkerMetrics], List[Any]]
+) -> List[Any]:
+    result = []
+    for worker in workers:
+        result.extend(value_fn(worker))
+    return result
+
+
+def aggregate_csi_drivers(workers: List[WorkerMetrics]) -> List[str]:
     """Merge csi_drivers from a worker into a deduplicated list of driver names.
 
     Node Engine advertises drivers as objects: {csi_driver_name, csi_driver_endpoint}.
     After aggregation, the cluster reports a flat list of name strings to the root.
     """
-    val = w.get("csi_drivers")
-    if val is None:
-        return acc
+    aggregated_drivers = []
 
-    if acc is None:
-        acc = []
-    elif not isinstance(acc, list):
-        raise RuntimeError("Tried to use csi_drivers_aggregator with non-list accumulator")
-
-    if isinstance(val, list):
-        for item in val:
-            if isinstance(item, dict):
-                name = item.get("csi_driver_name")
-            elif isinstance(item, str):
-                name = item
-            else:
+    for w in workers:
+        for driver in w.csi_drivers:
+            if driver.csi_driver_name is None:
                 continue
-            if name and name not in acc:
-                acc.append(name)
-    return acc
+
+            aggregated_drivers.append(driver)
+
+    return aggregated_drivers
 
 
-# canonical resources are resources that are required by the system manager
-# this dict contains {resource_name: aggregation_scheme}
-# where aggregation scheme outlines how this resource should be aggregated.
-# Every aggregation schema is a function that takes an accumulator and a worker
-# and returns a new accumulator: acc, w -> acc
-canonical_resources: Dict[str, ResourceAggregator] = {
-    "cpu_percent": lambda w, acc=0.0: average_aggregator(w, acc, "cpu_percent"),
-    "vcpus": lambda w, acc=0: default_aggregator(w, acc, "vcpus"),
-    "memory_percent": lambda w, acc=0.0: average_aggregator(w, acc, "memory_percent"),
-    "vram": lambda w, acc=0: default_aggregator(w, acc, "vram"),
-    "vram_percent": lambda w, acc=0.0: average_aggregator(w, acc, "vram_percent"),
-    "gpu_temp": lambda w, acc=0.0: average_aggregator(w, acc, "gpu_temp"),
-    "gpu_drivers": lambda w, acc=None: default_aggregator(w, acc, "gpu_drivers"),
-    "gpu_percent": lambda w, acc=0.0: average_aggregator(w, acc, "gpu_percent"),
-    "vgpus": lambda w, acc=0: default_aggregator(w, acc, "vgpus"),
-    "memory": lambda w, acc=0: default_aggregator(w, acc, "memory"),
-    "virtualization": lambda w, acc=None: default_aggregator(w, acc, "virtualization"),
-    "supported_addons": lambda w, acc=None: default_aggregator(w, acc, "supported_addons"),
-    "csi_drivers": lambda w, acc=None: csi_drivers_aggregator(w, acc),
-    "active_nodes": lambda w, acc=0: acc if not w else acc + 1,
-}
+def aggregate_worker_metrics(workers: List[WorkerMetrics]) -> AggregatedWorkerMetrics:
+    # TODO: discuss adding back non-canonical metrics
+    return AggregatedWorkerMetrics(
+        active_nodes=len(workers),
+        vcpus=sum_int_metric(workers, lambda w: w.vcpus),
+        memory=sum_int_metric(workers, lambda w: w.memory),
+        vgpus=sum_int_metric(workers, lambda w: w.vgpus),
+        vram=sum_int_metric(workers, lambda w: int(w.vram) if w.vram is not None else None),
+
+        cpu_percent=average_float_metric(workers, lambda w: w.cpu_percent),
+        memory_percent=average_float_metric(workers, lambda w: w.memory_percent),
+        vram_percent=average_float_metric(workers, lambda w: w.vram_percent),
+        gpu_percent=average_float_metric(workers, lambda w: w.gpu_usage),
+
+        gpu_drivers=concatenate_single_list_metric(workers, lambda w: w.gpu_driver),
+
+        virtualization=concatenate_multi_list_metric(workers, lambda w: w.virtualization),
+        supported_addons=concatenate_multi_list_metric(workers, lambda w: w.supported_addons),
+        csi_drivers=aggregate_csi_drivers(workers),
+
+        aggregation_per_architecture={}
+    )
 
 
-def aggregate_workers(workers: List[ResourceDict]) -> Dict[str, ResourceAccumulator]:
-    # reset global counters
-    for key in counters.keys():
-        counters[key] = 0
+def compute_aggregated_worker_metrics() -> Optional[AggregatedWorkerMetrics]:
+    worker_msgs = candidate_operations.get_candidates(active=True)
+    if not worker_msgs:
+        return None
 
-    result = {}
+    worker_metrics = [WorkerMetrics.model_validate(worker_msg) for worker_msg in worker_msgs]
 
-    if workers is None:
-        return result
-
-    for w in workers:
-        # iterate over all worker resources, always collect canonical resources
-        keys_to_process = set(w.keys()) | set(canonical_resources.keys())
-        keys_to_process -= CLUSTER_FIELDS
-
-        for key in keys_to_process:
-            if key in canonical_resources:
-                aggregator = canonical_resources[key]
-                if key not in result:
-                    result[key] = aggregator(w)
-                else:
-                    result[key] = aggregator(w, result[key])
-
-            else:
-                result[key] = default_aggregator(w, result.get(key), key)
-
-    # add cumulative neutral values
-    for key, agg in canonical_resources.items():
-        if key not in result:
-            result[key] = agg({})
-
-    return result
-
-
-
-AggregateInfo: TypeAlias = Dict[str, Union[ResourceAccumulator, Dict[str, Dict[str, ResourceAccumulator]]]]
-
-
-def aggregate_info() -> AggregateInfo:
-    workers = candidate_operations.get_candidates(active=True)
-
-    if workers is None:
-        return {}
-
-    result: AggregateInfo = aggregate_workers(workers)
-
-    workers_by_arch: Dict[str, List[Dict[str, ResourceValue]]] = defaultdict(list)
-    for w in workers:
-        arch = w.get("architecture")
-        if arch is None:
+    workers_metrics_by_arch: Dict[str, List[WorkerMetrics]] = defaultdict(list)
+    for metrics_entry in worker_metrics:
+        if metrics_entry.architecture is None:
             continue
-        workers_by_arch[arch].append(w)
 
-    result["aggregation_per_architecture"] = {
-        arch: aggregate_workers(workers) for arch, workers in workers_by_arch.items()
+        workers_metrics_by_arch[metrics_entry.architecture].append(metrics_entry)
+
+    aggregated_metrics: AggregatedWorkerMetrics = aggregate_worker_metrics(worker_metrics)
+    aggregated_metrics.aggregation_per_architecture = {
+        arch: aggregate_worker_metrics(entries) for arch, entries in workers_metrics_by_arch.items()
     }
 
-    return result
+    return aggregated_metrics

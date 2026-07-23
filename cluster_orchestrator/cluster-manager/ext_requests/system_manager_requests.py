@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import threading
 import traceback
@@ -22,11 +23,14 @@ logger = logging.getLogger("cluster_manager")
 
 def send_aggregated_info_to_sm(assigned_cluster_id: str, time_interval_seconds: int) -> None:
     try:
-        data = resource_aggregation.aggregate_info()
-        data.update({"jobs": job_management.aggregate_info(time_interval_seconds)})
-        logger.debug("sending aggregated info to system manager: %s", data)
-        threading.Thread(group=None, target=send_aggregated_info, args=(assigned_cluster_id, data)).start()
-        prometheus_set_metrics(data)
+        metrics = resource_aggregation.compute_aggregated_worker_metrics()
+
+        metrics_msg = dataclasses.asdict(metrics) if metrics is not None else {}
+        metrics_msg.update({"jobs": job_management.aggregate_info(time_interval_seconds)})
+
+        logger.debug("sending aggregated info to system manager")
+        threading.Thread(group=None, target=send_aggregated_info, args=(assigned_cluster_id, metrics_msg)).start()
+        prometheus_set_metrics(metrics_msg)
     except Exception as e:
         logger.error(e)
         traceback.print_exc()

@@ -1,56 +1,6 @@
-from typing import Optional, List, Any, TypeAlias, Dict
+from typing import Optional, List, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-AnyJob: TypeAlias = Dict[str, Any]
-AnyInstance: TypeAlias = Dict[str, Any]
-
-class Job(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    id: Optional[str] = Field(alias="_id", default=None)
-    job_name: Optional[str] = None
-    status: Optional[str] = None
-    status_detail: Optional[str] = None
-    instance_list: Optional[List["JobInstance"]] = None
-    virtualization: Optional[str] = None
-
-    @field_validator("id", mode="before")
-    @classmethod
-    def transform_id(cls, value: Any) -> Optional[str]:
-        if value is None:
-            return value
-
-        if isinstance(value, str):
-            return value if value != "" else None
-
-        if isinstance(value, int) or isinstance(value, float):
-            return str(value)
-
-        raise ValueError('Unexpected type')
-
-    @field_validator(
-        "job_name",
-        "status",
-        "status_detail",
-        "virtualization",
-        mode="before"
-    )
-    @classmethod
-    def empty_string_to_none(cls, value: Any) -> Any:
-        if value == "":
-            return None
-        return value
-
-    def require_id(self) -> str:
-        if not self.id:
-            raise RuntimeError("Expected Job to have _id")
-        return self.id
-
-    def require_job_name(self) -> str:
-        if not self.job_name:
-           raise RuntimeError("Expected Job to have job_name")
-        return self.job_name
 
 
 class JobInstance(BaseModel):
@@ -115,6 +65,54 @@ class JobInstance(BaseModel):
             self.logs = other.logs
 
 
+class Job(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = Field(alias="_id", default=None)
+    job_name: Optional[str] = None
+    status: Optional[str] = None
+    status_detail: Optional[str] = None
+    instance_list: Optional[List[JobInstance]] = None
+    virtualization: Optional[str] = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def transform_id(cls, value: Any) -> Optional[str]:
+        if value is None:
+            return value
+
+        if isinstance(value, str):
+            return value if value != "" else None
+
+        if isinstance(value, int) or isinstance(value, float):
+            return str(value)
+
+        raise ValueError('Unexpected type')
+
+    @field_validator(
+        "job_name",
+        "status",
+        "status_detail",
+        "virtualization",
+        mode="before"
+    )
+    @classmethod
+    def empty_string_to_none(cls, value: Any) -> Any:
+        if value == "":
+            return None
+        return value
+
+    def require_id(self) -> str:
+        if not self.id:
+            raise RuntimeError("Expected Job to have _id")
+        return self.id
+
+    def require_job_name(self) -> str:
+        if not self.job_name:
+            raise RuntimeError("Expected Job to have job_name")
+        return self.job_name
+
+
 class JobInstanceResources(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -147,7 +145,6 @@ class JobInstanceResources(BaseModel):
         if not self.job_name:
             raise RuntimeError("Expected instance resources to have job_name")
         return self.job_name
-
 
     def require_instance_number(self) -> int:
         if not self.instance_number:
