@@ -1,7 +1,6 @@
 [project]
 name = "cluster-manager"
-version = "0.1.0"
-requires-python = ">=3.10.13"
+version = "0.0.0"
 dependencies = [
     "apscheduler>=3.11.3",
     "eventlet==0.33.3",
@@ -21,12 +20,16 @@ dependencies = [
     "pyyaml>=6.0.3",
     "requests>=2.27.1",
     "werkzeug==2.0.3",
-    "oakestra-utils",
-    "resource-abstractor-client",
     "typing-extensions>=4.16.0",
     "pydantic>=2.13.4",
+    "oakestra-utils",
+    "resource-abstractor-client",
 ]
 
 [tool.uv.sources]
-oakestra-utils = { path = "../../libraries/oakestra_utils_library" }
-resource-abstractor-client = { path = "../../libraries/resource_abstractor_client" }
+oakestra-utils = { workspace = true }
+resource-abstractor-client = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"

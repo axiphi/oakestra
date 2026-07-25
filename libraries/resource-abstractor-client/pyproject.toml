@@ -1,0 +1,6 @@
+[project]
+name = "resource-abstractor-client"
+version = "0.0.0"
+dependencies = [
+    "requests==2.27.1"
+]

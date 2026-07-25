@@ -29,7 +29,7 @@ resource_abstractor = "http://localhost:11011"
 
 def test_create_service_with_app():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -64,7 +64,7 @@ def test_create_service_with_app():
 
 def test_create_service_without_app():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         # SETUP
@@ -87,7 +87,7 @@ def test_create_service_without_app():
 
 def test_create_invalid_service_name():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -112,7 +112,7 @@ def test_create_invalid_service_name():
 
 def test_create_invalid_service_namespace():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -138,7 +138,7 @@ def test_create_invalid_service_namespace():
 
 def test_delete_service():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -181,7 +181,7 @@ def test_delete_service():
 # TODO(ME): Commented it out until a proper update service is implemented
 # def test_update_service(resource_abstractor):
 #     with patch(
-#         "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+#         "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
 #         new=str(resource_abstractor),
 #     ):
 #         sla = get_full_random_sla_app()
@@ -216,7 +216,7 @@ def test_delete_service():
 
 def test_update_service_not_found():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -251,7 +251,7 @@ def test_update_service_not_found():
 
 def test_get_user_services():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -286,7 +286,7 @@ def test_get_user_services():
 
 def test_get_services():
     with patch(
-        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()

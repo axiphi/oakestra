@@ -1,3 +1,14 @@
+[project]
+name = "oakestra"
+version = "0.0.0"
+requires-python = ">=3.10.13"
+
+[tool.uv.workspace]
+members = [
+    "cluster_orchestrator/cluster-manager",
+    "libraries/*",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
