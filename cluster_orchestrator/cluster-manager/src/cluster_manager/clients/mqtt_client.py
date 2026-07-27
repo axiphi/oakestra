@@ -45,7 +45,7 @@ def handle_mqtt_message(_client: Any, _userdata: Any, message: MQTTMessage):
 
     topic = message.topic
     payload_str = payload_bytes.decode()
-    # logger.info("MQTT - Received from worker - %s: %s", topic, payload_str)
+    logger.info("MQTT - Received from worker - %s: %s", topic, payload_str)
 
     re_nodes_information_topic = re.search("^nodes/.*/information$", topic)
     re_job_deployment_topic = re.search("^nodes/.*/job$", topic)
