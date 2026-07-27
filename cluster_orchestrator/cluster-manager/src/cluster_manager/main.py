@@ -18,7 +18,7 @@ from .blueprints import blueprints
 from .clients.mqtt_client import initialize_mqtt
 from .clients.my_prometheus_client import prometheus_init_gauge_metrics
 from .app_logging import configure_logging
-from .app_config import CONFIG
+from .app_config import CONFIG, SYSTEM_MANAGER_GRPC_ADDR, GRPC_REQUEST_TIMEOUT, RUNTIME_CONFIG
 from .ext_requests.system_manager_requests import (
     re_deploy_dead_jobs_routine,
     send_aggregated_info_to_sm,
@@ -87,7 +87,7 @@ def launch_background_jobs(assigned_cluster_id: str):
 def register_with_system_manager():
     """Registers this cluster manager with the system manager using gRPC."""
 
-    with grpc.insecure_channel(config.SYSTEM_MANAGER_GRPC_ADDR) as channel:
+    with grpc.insecure_channel(SYSTEM_MANAGER_GRPC_ADDR) as channel:
         stub = register_clusterStub(channel)
 
         # Send initial greeting (CS1Message)
@@ -99,7 +99,7 @@ def register_with_system_manager():
             }
         )
         sc1: SC1Message = stub.handle_init_greeting(
-            greeting, wait_for_ready=True, timeout=config.GRPC_REQUEST_TIMEOUT
+            greeting, wait_for_ready=True, timeout=GRPC_REQUEST_TIMEOUT
         )
         logger.info(
             "Received greeting message from System Manager: " + str(sc1.hello_cluster_manager)
@@ -115,14 +115,14 @@ def register_with_system_manager():
         details.cluster_info.append(KeyValue())
 
         sc2: SC2Message = stub.handle_init_final(
-            details, wait_for_ready=True, timeout=config.GRPC_REQUEST_TIMEOUT
+            details, wait_for_ready=True, timeout=GRPC_REQUEST_TIMEOUT
         )
 
         if not sc2.id:
             raise RuntimeError("Registration failed: no cluster id returned by root")
 
         assigned_cluster_id = sc2.id
-        config.assigned_cluster_id = assigned_cluster_id
+        RUNTIME_CONFIG.assigned_cluster_id = assigned_cluster_id
 
         logger.info(f"Cluster ID received: {assigned_cluster_id}. Go ahead with Background Jobs")
         prometheus_init_gauge_metrics(assigned_cluster_id, app.logger)

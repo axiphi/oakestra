@@ -41,6 +41,10 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
         all_instances: List[JobInstance] = job.instance_list if job.instance_list is not None else []
         failed_instance_numbers: List[int] = []
         for instance in all_instances:
+            if instance.instance_number is None:
+                logger.info("Missing instance number in mark_inactive_as_failed: %s", instance.model_dump_json(indent=2, by_alias=True))
+                continue
+
             instance_number: int = instance.require_instance_number()
 
             timestamp = (

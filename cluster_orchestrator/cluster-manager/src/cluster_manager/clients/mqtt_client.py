@@ -45,7 +45,7 @@ def handle_mqtt_message(_client: Any, _userdata: Any, message: MQTTMessage):
 
     topic = message.topic
     payload_str = payload_bytes.decode()
-    logger.info("MQTT - Received from worker - %s: %s", topic, payload_str)
+    # logger.info("MQTT - Received from worker - %s: %s", topic, payload_str)
 
     re_nodes_information_topic = re.search("^nodes/.*/information$", topic)
     re_job_deployment_topic = re.search("^nodes/.*/job$", topic)
@@ -96,6 +96,10 @@ def handle_node_job_resources_message(client_id: str, payload: Any):
     message = NodeJobResourceMessage.model_validate(payload)
 
     for resources_entry in message.instance_resources:
+        if resources_entry.instance_number is None:
+            logger.info("Missing instance number in %s", resources_entry.model_dump_json(indent=2, by_alias=True))
+            continue
+
         # If unable to update then worker has outdated information
         # and service must be undeployed
         if (

@@ -12,7 +12,7 @@ def sum_int_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetri
 
 def average_float_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[float]]) -> float:
     values: List[float] = [cast(float, value_fn(worker)) for worker in workers if value_fn(worker) is not None]
-    return sum(values) / len(values)
+    return 0.0 if not values else sum(values) / len(values)
 
 
 def concatenate_single_list_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Any]) -> List[Any]:

@@ -5,7 +5,7 @@ from flask import Response
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
-from ..app_config import CONFIG
+from ..app_config import CONFIG, RUNTIME_CONFIG
 
 logger = logging.getLogger("cluster_manager")
 
@@ -28,7 +28,7 @@ class ClusterStatusController(MethodView):
         logger.debug("Incoming Request GET /api/cluster/status")
         response = {
             "cluster_name": CONFIG.cluster_name,
-            "cluster_id": config.assigned_cluster_id,
-            "connected_to_root": config.assigned_cluster_id is not None,
+            "cluster_id": RUNTIME_CONFIG.assigned_cluster_id,
+            "connected_to_root": RUNTIME_CONFIG.assigned_cluster_id is not None,
         }
         return Response(json_util.dumps(response), mimetype="application/json")

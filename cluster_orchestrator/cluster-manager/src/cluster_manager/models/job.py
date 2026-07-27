@@ -42,7 +42,7 @@ class JobInstance(BaseModel):
         return value
 
     def require_instance_number(self) -> int:
-        if not self.instance_number:
+        if self.instance_number is None:
             raise RuntimeError("Expected instance to have instance_number")
         return self.instance_number
 
@@ -103,12 +103,12 @@ class Job(BaseModel):
         return value
 
     def require_id(self) -> str:
-        if not self.id:
+        if self.id is None:
             raise RuntimeError("Expected Job to have _id")
         return self.id
 
     def require_job_name(self) -> str:
-        if not self.job_name:
+        if self.job_name is None:
             raise RuntimeError("Expected Job to have job_name")
         return self.job_name
 
@@ -142,11 +142,11 @@ class JobInstanceResources(BaseModel):
         return value
 
     def require_job_name(self) -> str:
-        if not self.job_name:
+        if self.job_name is None:
             raise RuntimeError("Expected instance resources to have job_name")
         return self.job_name
 
     def require_instance_number(self) -> int:
-        if not self.instance_number:
+        if self.instance_number is None:
             raise RuntimeError("Expected instance resources to have instance")
         return self.instance_number

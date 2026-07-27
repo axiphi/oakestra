@@ -1,5 +1,6 @@
 import os
 from typing import Optional, NamedTuple
+from dataclasses import dataclass
 
 
 def _load_optional_env_str(name: str) -> Optional[str]:
@@ -25,7 +26,8 @@ def _build_http_url(host: str, port: int) -> str:
     return "http://" + host + ":" + str(port)
 
 
-class EnvironmentConfig(NamedTuple):
+@dataclass(frozen=True)
+class EnvironmentConfig:
     # required vars
     port: int
     mqtt_broker_url: str
@@ -69,6 +71,7 @@ class EnvironmentConfig(NamedTuple):
             log_level=_load_optional_env_str("LOG_LEVEL"),
         )
 
+
 CONFIG = EnvironmentConfig.load()
 GRPC_REQUEST_TIMEOUT = 120
 
@@ -77,4 +80,10 @@ SERVICE_MANAGER_ADDR = _build_http_url(CONFIG.cluster_service_manager_addr, CONF
 SYSTEM_MANAGER_GRPC_ADDR = CONFIG.system_manager_url + ":" + str(CONFIG.system_manager_grpc_port)
 SYSTEM_MANAGER_ADDR = _build_http_url(CONFIG.system_manager_url, CONFIG.system_manager_port)
 
-assigned_cluster_id: Optional[str] = None
+
+@dataclass
+class RuntimeConfig:
+    assigned_cluster_id: Optional[str] = None
+
+
+RUNTIME_CONFIG = RuntimeConfig()
