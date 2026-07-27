@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
 from oakestra_utils.types.statuses import (
     DeploymentStatus,
@@ -73,7 +73,7 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
     return
 
 
-def aggregate_info(time_interval_seconds: int) -> List[AnyJob]:
+def aggregate_info(time_interval_seconds: int) -> List[Dict[str, Any]]:
     mark_inactive_as_failed(time_interval_seconds)
     jobs = job_operations.get_jobs() or []
 
@@ -282,7 +282,7 @@ def delete_job_instance(
             worker_id = instance.worker_id
 
             if worker_id is not None:
-                from clients.mqtt_client import mqtt_publish_edge_delete
+                from ..clients.mqtt_client import mqtt_publish_edge_delete
                 mqtt_publish_edge_delete(
                     worker_id,
                     job.require_job_name(),
