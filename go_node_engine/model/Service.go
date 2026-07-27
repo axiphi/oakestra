@@ -76,4 +76,7 @@ const (
 	// SERVICE_INSTANTIATION means the worker accepted the deploy and is creating
 	// the container. Emitted before Deploy() starts; cleared on completion.
 	SERVICE_INSTANTIATION = "INSTANTIATION"
+	// SERVICE_UNKNOWN means the runtime could not determine the state of the service.
+	// Reported instead of guessing, so the problem stays diagnosable.
+	SERVICE_UNKNOWN = "UNKNOWN"
 )

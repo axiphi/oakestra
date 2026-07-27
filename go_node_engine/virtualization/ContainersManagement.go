@@ -571,12 +571,43 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Runtime:  string(model.CONTAINER_RUNTIME),
 				Logs:     getLogs(container.ID()),
 				Instance: extractInstanceNumberFromTaskID(container.ID()),
-				Status:   model.SERVICE_RUNNING,
+				Status:   r.taskStatus(task),
 			})
 		}
 		resourceList = append(resourceList, model.InstantiatingResources(model.CONTAINER_RUNTIME)...)
 		//NOTIFY WITH THE CURRENT CONTAINERS STATUS
 		notifyHandler(resourceList)
+	}
+}
+
+// taskStatus maps the containerd ProcessStatus of a running task onto the Oakestra
+// service statuses. Paused/Pausing have no Oakestra equivalent: a workload managed by
+// Oakestra can only end up there if someone paused it manually, so it is reported as a
+// failure rather than being silently treated as healthy.
+func (r *ContainerRuntime) taskStatus(task containerd.Task) string {
+	status, err := task.Status(r.ctx)
+	if err != nil {
+		logger.ErrorLogger().Printf("Unable to fetch task status: %v", err)
+		return model.SERVICE_UNKNOWN
+	}
+
+	switch status.Status {
+	case containerd.Running:
+		return model.SERVICE_RUNNING
+	case containerd.Created:
+		return model.SERVICE_CREATED
+	case containerd.Stopped:
+		// The exit watcher in startContainer() emits the authoritative terminal status
+		if status.ExitStatus != 0 {
+			return model.SERVICE_FAILED
+		}
+		return model.SERVICE_DEAD
+	case containerd.Paused, containerd.Pausing:
+		logger.WarnLogger().Printf("Task %s is %s, reporting it as failed", task.ID(), status.Status)
+		return model.SERVICE_FAILED
+	default:
+		logger.WarnLogger().Printf("Unrecognized containerd task status %q for task %s", status.Status, task.ID())
+		return model.SERVICE_UNKNOWN
 	}
 }
 
