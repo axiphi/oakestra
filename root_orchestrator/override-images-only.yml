@@ -1,6 +1,6 @@
 services:
   system_manager:
-    image: ghcr.io/oakestra/oakestra/root-system_manager:latest
+    image: ghcr.io/oakestra/oakestra/root-system-manager:latest
     pull_policy: always
 
   mongo_root:
