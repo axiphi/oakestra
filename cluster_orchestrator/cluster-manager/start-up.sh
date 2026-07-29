@@ -1,8 +1,5 @@
 #!/bin/bash
 
-uv venv
-uv sync
-
 export FLASK_ENV=development
 export FLASK_DEBUG=True # TRUE for logging
 
@@ -45,4 +42,4 @@ export CLUSTER_NAME=cluster_local
 
 export MY_PORT=8000
 
-.venv/bin/python cluster_manager.py
+uv run src/cluster_manager/main.py
