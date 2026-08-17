@@ -370,7 +370,7 @@ func (r *ContainerRuntime) containerCreationRoutine(
 	// -- add oci SpecOpts to containerOpts
 	containerOpts = append(containerOpts, ctd.WithNewSpec(specOpts...))
 
-	containerOpts = append(containerOpts, containerd.WithAdditionalContainerLabels(map[string]string{TASK_ID_LABEL: taskid}))
+	containerOpts = append(containerOpts, ctd.WithAdditionalContainerLabels(map[string]string{TASK_ID_LABEL: taskId}))
 
 	// Create the container
 	container, err := r.containerClient.NewContainer(
@@ -585,7 +585,7 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Cpu:      fmt.Sprintf("%f", cpuUsage),
 				Memory:   fmt.Sprintf("%f", memUsage),
 				Disk:     fmt.Sprintf("%d", usage.Size),
-				Sname:    taskid.extractSnameFromTaskID(taskId),
+				Sname:    taskid.ExtractServiceName(taskId),
 				Runtime:  string(model.CONTAINER_RUNTIME),
 				Logs:     logutils.GetLogs(taskId),
 				Instance: taskid.ExtractInstanceNumber(taskId),
