@@ -1199,7 +1199,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "oakestra-utils", editable = "libraries/oakestra-utils" },
-    { name = "requests", specifier = "==2.27.1" },
+    { name = "requests", specifier = ">=2.27.1" },
 ]
 
 [[package]]
