@@ -172,15 +172,15 @@ export OVERRIDE_FILES="override-no-addons.yml,override-network-host.yml"
 | `cluster-manager` | **Migrated to `uv`** | UV workspace member (`pyproject.toml`) | Docker build context is repo root (`../`). Managed via root `uv sync`. |
 | `oakestra-utils` | **Migrated to `uv`** | UV workspace member (`libraries/oakestra-utils`) | Installed into `.venv` in editable mode via `uv sync`. |
 | `resource-abstractor-client` | **Migrated to `uv`** | UV workspace member (`libraries/resource-abstractor-client`) | Installed into `.venv` in editable mode via `uv sync`. |
-| `resource-abstractor` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. Recommend subfolder `.venv` for local uncontainerized dev. |
-| `jwt-generator` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. |
-| `addons-manager` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. |
-| `addons-monitor` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. |
-| `marketplace-manager` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. |
+| `resource-abstractor` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. Requires dedicated subfolder `.venv` for local uncontainerized dev. |
+| `jwt-generator` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. Requires dedicated subfolder `.venv` for local uncontainerized dev. |
+| `addons-manager` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. Requires dedicated subfolder `.venv` for local uncontainerized dev. |
+| `addons-monitor` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. Requires dedicated subfolder `.venv` for local uncontainerized dev. |
+| `marketplace-manager` | *Not yet migrated* | `requirements.txt` (pip) | Isolated build context. Requires dedicated subfolder `.venv` for local uncontainerized dev. |
 
-> [!NOTE]
+> [!IMPORTANT]
 > **CI Pipelines and Docker Container Builds** build each service in an isolated environment and are unaffected by mixed dependency managers.
-> **Local Uncontainerized Development**: Running `uv sync` manages packages strictly according to `uv.lock` and will uninstall untracked pip packages from the root `.venv`. When running/debugging non-uv modules locally without Docker, set up secondary virtual environments in their respective subdirectories (e.g., `resource-abstractor/.venv`).
+> **Local Uncontainerized Development**: Running `uv sync` manages packages strictly according to `uv.lock` and will uninstall untracked pip packages from the root `.venv`. When running/debugging non-uv modules locally without Docker, **always** use dedicated secondary virtual environments in their respective subdirectories (e.g., `resource-abstractor/.venv`). Never run `pip install -r requirements.txt` into the root `.venv`.
 
 ---
 

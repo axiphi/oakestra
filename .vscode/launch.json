@@ -73,7 +73,7 @@
             "name": "Debug Root Resource Abstractor",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/resource-abstractor/.venv/bin/python",
             "program": "${workspaceRoot}/resource-abstractor/resource_abstractor.py",
             "console": "integratedTerminal",
             "env": {
@@ -88,7 +88,7 @@
             "name": "Debug JWT Generator",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/root_orchestrator/jwt-generator/.venv/bin/python",
             "program": "${workspaceRoot}/root_orchestrator/jwt-generator/jwt_generator.py",
             "console": "integratedTerminal",
             "env": {
@@ -101,7 +101,7 @@
             "name": "Debug Root Addons Manager",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/addons_engine/addons-manager/.venv/bin/python",
             "program": "${workspaceRoot}/addons_engine/addons-manager/addons_manager.py",
             "console": "integratedTerminal",
             "env": {
@@ -116,7 +116,7 @@
             "name": "Debug Root Addons Monitor",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/addons_engine/addons-monitor/.venv/bin/python",
             "program": "${workspaceRoot}/addons_engine/addons-monitor/addons_monitor.py",
             "console": "integratedTerminal",
             "env": {
@@ -131,7 +131,7 @@
             "name": "Debug Marketplace Manager",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/addons_marketplace/marketplace-manager/.venv/bin/python",
             "program": "${workspaceRoot}/addons_marketplace/marketplace-manager/marketplace_manager.py",
             "console": "integratedTerminal",
             "env": {
@@ -197,7 +197,7 @@
             "name": "Debug Cluster Resource Abstractor",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/resource-abstractor/.venv/bin/python",
             "program": "${workspaceRoot}/resource-abstractor/resource_abstractor.py",
             "console": "integratedTerminal",
             "env": {
@@ -212,7 +212,7 @@
             "name": "Debug Cluster Addons Manager",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/addons_engine/addons-manager/.venv/bin/python",
             "program": "${workspaceRoot}/addons_engine/addons-manager/addons_manager.py",
             "console": "integratedTerminal",
             "env": {
@@ -227,7 +227,7 @@
             "name": "Debug Cluster Addons Monitor",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${workspaceRoot}/addons_engine/addons-monitor/.venv/bin/python",
             "program": "${workspaceRoot}/addons_engine/addons-monitor/addons_monitor.py",
             "console": "integratedTerminal",
             "env": {
