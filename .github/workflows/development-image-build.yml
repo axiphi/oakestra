@@ -5,12 +5,12 @@ on:
     branches:
       - develop  
     paths:
-      - 'root_orchestrator/**'
-      - 'cluster_orchestrator/**'
-      - 'resource-abstractor/**'
-      - 'addons_engine/**'
-      - 'addons_marketplace/**'
-      - 'libraries/**'
+      - 'root_orchestrator/system-manager-python/Dockerfile'
+      - 'root_orchestrator/system-manager-python/pyproject.toml'
+      - 'cluster_orchestrator/cluster-manager/Dockerfile'
+      - 'cluster_orchestrator/cluster-manager/pyproject.toml'
+      - 'libraries/resource-abstractor-client/pyproject.toml'
+      - 'libraries/oakestra-utils/pyproject.toml'
       - 'pyproject.toml'
       - 'uv.lock'
 
@@ -32,11 +32,14 @@ jobs:
         with:
           since_last_remote_commit: true 
           files: |
-            ./**/**/Dockerfile
-            ./**/**/requirements.txt
-            ./**/**/pyproject.toml
-            ./uv.lock
-            ./libraries/**
+            root_orchestrator/system-manager-python/Dockerfile
+            root_orchestrator/system-manager-python/pyproject.toml
+            cluster_orchestrator/cluster-manager/Dockerfile
+            cluster_orchestrator/cluster-manager/pyproject.toml
+            libraries/resource-abstractor-client/pyproject.toml
+            libraries/oakestra-utils/pyproject.toml
+            pyproject.toml
+            uv.lock
 
       - name: Run step if matching changed files are detected
         id: folders
@@ -50,13 +53,14 @@ jobs:
           value=()
           for element in "${context_array[@]}"; do
             element=$(echo "$element" | tr -d '[:space:]')
+            element="${element#./}"
             [ -z "$element" ] && continue
+
             if [[ "$element" == libraries/* ]] || [[ "$element" == "pyproject.toml" ]] || [[ "$element" == "uv.lock" ]]; then
               value+=("root_orchestrator/system-manager-python")
               value+=("cluster_orchestrator/cluster-manager")
-            elif [[ "$element" == */Dockerfile ]] || [[ "$element" == */requirements.txt ]] || [[ "$element" == */pyproject.toml ]]; then
+            elif [[ "$element" == */Dockerfile ]] || [[ "$element" == */pyproject.toml ]]; then
               dir="$(dirname "$element")"
-              # Filter to directories containing a Dockerfile
               if [ -f "$dir/Dockerfile" ]; then
                 value+=("$dir")
               fi
@@ -68,7 +72,7 @@ jobs:
           output="value=$(printf '%s\n' "${unique_values[@]}" | jq -R . | jq -s -c .)"
           echo "$output" >> $GITHUB_OUTPUT
                   
-### Dynamic matrix for spawning multiple build jobs
+  ### Dynamic matrix for spawning multiple build jobs
   build:
     needs: [ gather-modified-files ]
     runs-on: ubuntu-latest
