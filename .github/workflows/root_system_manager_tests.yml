@@ -43,9 +43,4 @@ jobs:
       - name: Run test suite
         working-directory: root_orchestrator/system-manager-python
         run: |
-          uv run --with pytest --with coverage coverage run -m pytest
-
-      - name: Generate report
-        working-directory: root_orchestrator/system-manager-python
-        run: |
-          uv run --with coverage coverage html -d tests/coverage
+          uv run --with pytest pytest
