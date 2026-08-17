@@ -20,7 +20,7 @@ dependencies = [
     "werkzeug==2.0.3",
     "markupsafe~=2.1.1",
     "flask-swagger-ui>=5.32.8",
-    "mongomock==4.1.2",
+    "mongomock>=4.3.0",
     "cryptography==44.0.1",
     "grpcio~=1.75.1",
     "grpcio-tools~=1.75.1",
