@@ -22,8 +22,8 @@ from flask_smorest import Api
 from flask_socketio import SocketIO
 from flask_swagger_ui import get_swaggerui_blueprint
 from google.protobuf.json_format import MessageToDict
-from proto.cluster_registration_pb2 import SC1Message, SC2Message
-from proto.cluster_registration_pb2_grpc import (
+from .proto.cluster_registration_pb2 import SC1Message, SC2Message
+from .proto.cluster_registration_pb2_grpc import (
     add_register_clusterServicer_to_server,
     register_clusterServicer,
 )

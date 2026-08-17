@@ -1,7 +1,7 @@
 LABEL org.opencontainers.image.source="https://github.com/oakestra/oakestra"
 
 ARG BASE_DIR=/oakestra
-ARG APP_DIR=$BASE_DIR/root_orchestrator/system-manager
+ARG APP_DIR=$BASE_DIR/root_orchestrator/system-manager-python
 ARG LIB_DIR=$BASE_DIR/libraries
 
 FROM ghcr.io/astral-sh/uv:python3.10-trixie-slim AS builder
@@ -20,7 +20,7 @@ WORKDIR $BASE_DIR
 RUN uv sync --frozen --no-install-workspace --package system-manager
 
 COPY libraries/ $LIB_DIR/
-COPY root_orchestrator/system-manager/ $APP_DIR/
+COPY root_orchestrator/system-manager-python/ $APP_DIR/
 
 WORKDIR $APP_DIR
 RUN uv run --no-sync -m grpc_tools.protoc \

@@ -8,7 +8,8 @@ from resource_abstractor_client import app_operations, job_operations
 from .utils import get_first_app, get_full_random_sla_app
 
 sys.modules["ext_requests.net_plugin_requests"] = Mock()
-net_plugin = sys.modules["ext_requests.net_plugin_requests"]
+sys.modules["system_manager.ext_requests.net_plugin_requests"] = Mock()
+net_plugin = sys.modules["system_manager.ext_requests.net_plugin_requests"]
 net_plugin.net_inform_service_deploy = MagicMock()
 
 # we ignore E402 because we need to import the service_management module after the mock
@@ -29,7 +30,7 @@ resource_abstractor = "http://localhost:11011"
 
 def test_create_service_with_app():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -64,7 +65,7 @@ def test_create_service_with_app():
 
 def test_create_service_without_app():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         # SETUP
@@ -87,7 +88,7 @@ def test_create_service_without_app():
 
 def test_create_invalid_service_name():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -112,7 +113,7 @@ def test_create_invalid_service_name():
 
 def test_create_invalid_service_namespace():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -138,7 +139,7 @@ def test_create_invalid_service_namespace():
 
 def test_delete_service():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -181,7 +182,7 @@ def test_delete_service():
 # TODO(ME): Commented it out until a proper update service is implemented
 # def test_update_service(resource_abstractor):
 #     with patch(
-#         "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+#         "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
 #         new=str(resource_abstractor),
 #     ):
 #         sla = get_full_random_sla_app()
@@ -216,7 +217,7 @@ def test_delete_service():
 
 def test_update_service_not_found():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -251,7 +252,7 @@ def test_update_service_not_found():
 
 def test_get_user_services():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()
@@ -286,7 +287,7 @@ def test_get_user_services():
 
 def test_get_services():
     with patch(
-        "resource-abstractor-client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
+        "resource_abstractor_client.client_helper.RESOURCE_ABSTRACTOR_ADDR",
         new=str(resource_abstractor),
     ):
         sla = get_full_random_sla_app()

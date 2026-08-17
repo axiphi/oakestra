@@ -1240,7 +1240,7 @@ wheels = [
 [[package]]
 name = "system-manager"
 version = "0.0.0"
-source = { editable = "root_orchestrator/system-manager" }
+source = { editable = "root_orchestrator/system-manager-python" }
 dependencies = [
     { name = "cerberus" },
     { name = "cryptography" },
@@ -1253,6 +1253,8 @@ dependencies = [
     { name = "flask-smorest" },
     { name = "flask-socketio" },
     { name = "flask-swagger-ui" },
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
     { name = "gunicorn" },
     { name = "jsonschema" },
     { name = "markupsafe" },
@@ -1260,6 +1262,7 @@ dependencies = [
     { name = "mongomock" },
     { name = "oakestra-utils" },
     { name = "prometheus-client" },
+    { name = "protobuf" },
     { name = "pymongo" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -1280,6 +1283,8 @@ requires-dist = [
     { name = "flask-smorest", specifier = "==0.39.0" },
     { name = "flask-socketio", specifier = "==4.3.1" },
     { name = "flask-swagger-ui", specifier = ">=5.32.8" },
+    { name = "grpcio", specifier = "~=1.75.1" },
+    { name = "grpcio-tools", specifier = "~=1.75.1" },
     { name = "gunicorn", specifier = "==22.0.0" },
     { name = "jsonschema", specifier = "~=4.4.0" },
     { name = "markupsafe", specifier = "~=2.1.1" },
@@ -1287,6 +1292,7 @@ requires-dist = [
     { name = "mongomock", specifier = "==4.1.2" },
     { name = "oakestra-utils", editable = "libraries/oakestra-utils" },
     { name = "prometheus-client", specifier = ">=0.25.0" },
+    { name = "protobuf", specifier = ">=4.25.2,<7.0.0" },
     { name = "pymongo", specifier = "~=4.10.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.27.1" },

@@ -22,7 +22,10 @@ dependencies = [
     "flask-swagger-ui>=5.32.8",
     "mongomock==4.1.2",
     "cryptography==44.0.1",
+    "grpcio~=1.75.1",
+    "grpcio-tools~=1.75.1",
     "gunicorn==22.0.0",
+    "protobuf>=4.25.2,<7.0.0",
     "oakestra-utils",
     "resource-abstractor-client",
 ]

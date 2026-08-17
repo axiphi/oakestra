@@ -8,7 +8,8 @@ import pymongo
 from ..ext_requests import mongodb_client, organization_db, user_db
 
 sys.modules["ext_requests.net_plugin_requests"] = unittest.mock.Mock()
-net_plugin = sys.modules["ext_requests.net_plugin_requests"]
+sys.modules["system_manager.ext_requests.net_plugin_requests"] = unittest.mock.Mock()
+net_plugin = sys.modules["system_manager.ext_requests.net_plugin_requests"]
 net_plugin.net_inform_service_deploy = MagicMock()
 
 
