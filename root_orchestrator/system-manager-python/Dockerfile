@@ -53,4 +53,4 @@ ENV PATH="$BASE_DIR/.venv/bin:$PATH" \
 
 LABEL org.opencontainers.image.source="https://github.com/oakestra/oakestra"
 
-CMD gunicorn --bind [::]:${MY_PORT} system_manager:app
+CMD gunicorn --bind [::]:${MY_PORT} system_manager.main:app
