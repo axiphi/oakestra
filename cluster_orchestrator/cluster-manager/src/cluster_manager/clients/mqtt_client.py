@@ -19,7 +19,6 @@ _mqtt: paho_mqtt.Client | None = None
 
 
 def ensure_mqtt() -> paho_mqtt.Client:
-    global _mqtt
     if not _mqtt:
         raise RuntimeError("Expected MQTT to be initialized")
     return _mqtt

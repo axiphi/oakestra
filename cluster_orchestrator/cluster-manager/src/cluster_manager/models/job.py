@@ -84,7 +84,7 @@ class Job(BaseModel):
         if isinstance(value, str):
             return value if value != "" else None
 
-        if isinstance(value, int) or isinstance(value, float):
+        if isinstance(value, (int, float)):
             return str(value)
 
         raise ValueError("Unexpected type")

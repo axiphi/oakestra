@@ -9,8 +9,6 @@ logger: logging.Logger | None = None
 
 
 def add_or_set_metric(name: Any, value: Any) -> None:
-    global metrics, logger
-
     metrics_name = "_gauge_" + str(name) + "_" + str(cluster_id)
     if type(value) is not list and type(value) is not dict and value is not None:
         try:

@@ -23,5 +23,9 @@ extend-select = [
     "I",  # isort
 ]
 ignore = [
-    "TD003",  # missing-todo-link. Ignored because we don't require adding tickets to TODOs
+    "TD003",  # missing TODO link: ignored because we don't require adding tickets to TODOs
+    "TD002",  # missing TODO author: ignored because we don't specify authors for all TODOs currently
+    "BLE001", # blind "Exception" catch: ignored because we currently rely on this a lot
+    "EXE002", # executable script without shebang: ignored because we don't really expect it to be executed directly
+
 ]
