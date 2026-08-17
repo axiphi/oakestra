@@ -27,7 +27,7 @@ RUN uv run --no-sync -m grpc_tools.protoc \
         --grpc_python_out=src \
         --pyi_out=src \
         src/cluster_manager/proto/cluster_registration.proto \
-    && uv sync --locked --no-editable
+    && uv sync --locked --no-editable --package cluster-manager
 
 FROM python:3.10-slim-trixie
 
