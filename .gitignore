@@ -7,8 +7,9 @@
 !.vscode/tasks.json
 !.vscode/README.md
 
-# macOS
+# macOS and Windows
 .DS_Store
+Thumbs.db
 
 # Environment and log files
 .env
