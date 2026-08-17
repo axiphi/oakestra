@@ -1,5 +1,3 @@
-LABEL org.opencontainers.image.source="https://github.com/oakestra/oakestra"
-
 ARG BASE_DIR=/oakestra
 ARG APP_DIR=$BASE_DIR/cluster_orchestrator/cluster-manager
 ARG LIB_DIR=$BASE_DIR/libraries
@@ -14,7 +12,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_NO_DEV=1
 
-COPY pyproject.toml uv.lock $BASE_DIR
+COPY pyproject.toml uv.lock $BASE_DIR/
 
 WORKDIR $BASE_DIR
 RUN uv sync --frozen --no-install-workspace --package cluster-manager
@@ -52,5 +50,7 @@ ENV PATH="$BASE_DIR/.venv/bin:$PATH" \
     MQTT_BROKER_PORT=10003 \
     MY_PORT=10100 \
     LOG_LEVEL=INFO
+
+LABEL org.opencontainers.image.source="https://github.com/oakestra/oakestra"
 
 CMD gunicorn --bind [::]:${MY_PORT} cluster_manager:app
