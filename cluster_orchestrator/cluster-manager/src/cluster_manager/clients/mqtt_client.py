@@ -69,8 +69,7 @@ def handle_node_information_message(client_id: str, payload: Any):
     message = NodeInformationMessage.model_validate(payload)
 
     updated = candidate_operations.update_candidate_information(
-        client_id,
-        message.model_dump(by_alias=True, exclude_none=True)
+        client_id, message.model_dump(by_alias=True, exclude_none=True)
     )
     if updated is None:
         mqtt = ensure_mqtt()
@@ -88,7 +87,7 @@ def handle_node_job_message(payload: Any):
         message.instance_number,
         message.status,
         message.status_detail,
-        message.public_ip
+        message.public_ip,
     )
 
 
@@ -97,23 +96,22 @@ def handle_node_job_resources_message(client_id: str, payload: Any):
 
     for resources_entry in message.instance_resources:
         if resources_entry.instance_number is None:
-            logger.info("Missing instance number in %s", resources_entry.model_dump_json(indent=2, by_alias=True))
+            logger.info(
+                "Missing instance number in %s",
+                resources_entry.model_dump_json(indent=2, by_alias=True),
+            )
             continue
 
         # If unable to update then worker has outdated information
         # and service must be undeployed
-        if (
-                not update_instance_resources(
-                    resources_entry.job_name,
-                    resources_entry.require_instance_number(),
-                    resources_entry
-                )
+        if not update_instance_resources(
+            resources_entry.job_name, resources_entry.require_instance_number(), resources_entry
         ):
             mqtt_publish_edge_delete(
                 client_id,
                 resources_entry.require_job_name(),
                 resources_entry.require_instance_number(),
-                resources_entry.virtualization
+                resources_entry.virtualization,
             )
 
 
@@ -148,11 +146,7 @@ def initialize_mqtt():
     mqtt.loop_start()
 
 
-def mqtt_publish_edge_deploy(
-        worker_id: str,
-        job: Job,
-        instance_number: int
-):
+def mqtt_publish_edge_deploy(worker_id: str, job: Job, instance_number: int):
     topic = "nodes/" + worker_id + "/control/deploy"
 
     data: Dict[str, Any] = job.model_dump(by_alias=True)
@@ -163,10 +157,7 @@ def mqtt_publish_edge_deploy(
 
 
 def mqtt_publish_edge_delete(
-        worker_id: str,
-        job_name: str,
-        instance_number: int,
-        runtime: Optional[str] = "docker"
+    worker_id: str, job_name: str, instance_number: int, runtime: Optional[str] = "docker"
 ):
     topic = "nodes/" + worker_id + "/control/delete"
 

@@ -76,7 +76,9 @@ CONFIG = EnvironmentConfig.load()
 GRPC_REQUEST_TIMEOUT = 120
 
 SCHEDULER_ADDR = _build_http_url(CONFIG.cluster_scheduler_url, CONFIG.cluster_scheduler_port)
-SERVICE_MANAGER_ADDR = _build_http_url(CONFIG.cluster_service_manager_addr, CONFIG.cluster_service_manager_port)
+SERVICE_MANAGER_ADDR = _build_http_url(
+    CONFIG.cluster_service_manager_addr, CONFIG.cluster_service_manager_port
+)
 SYSTEM_MANAGER_GRPC_ADDR = CONFIG.system_manager_url + ":" + str(CONFIG.system_manager_grpc_port)
 SYSTEM_MANAGER_ADDR = _build_http_url(CONFIG.system_manager_url, CONFIG.system_manager_port)
 

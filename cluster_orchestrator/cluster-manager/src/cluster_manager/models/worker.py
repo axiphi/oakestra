@@ -9,10 +9,7 @@ class WorkerCsiDriver(BaseModel):
 
     csi_driver_name: Optional[str] = None
 
-    @field_validator(
-        "csi_driver_name",
-        mode="before"
-    )
+    @field_validator("csi_driver_name", mode="before")
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:
         if value == "":
@@ -46,23 +43,14 @@ class WorkerMetrics(BaseModel):
     supported_addons: List[str] = []
     csi_drivers: List[WorkerCsiDriver] = []
 
-    @field_validator(
-        "virtualization",
-        "supported_addons",
-        "csi_drivers",
-        mode="before"
-    )
+    @field_validator("virtualization", "supported_addons", "csi_drivers", mode="before")
     @classmethod
     def none_to_empty_list(cls, value: Any) -> Any:
         if value is None:
             return []
         return value
 
-    @field_validator(
-        "architecture",
-        "gpu_driver",
-        mode="before"
-    )
+    @field_validator("architecture", "gpu_driver", mode="before")
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:
         if value == "":

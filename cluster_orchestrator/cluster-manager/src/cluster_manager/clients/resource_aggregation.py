@@ -5,17 +5,27 @@ from resource_abstractor_client import candidate_operations
 from ..models.worker import WorkerMetrics, AggregatedWorkerMetrics
 
 
-def sum_int_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[int]]) -> int:
-    values: List[int] = [cast(int, value_fn(worker)) for worker in workers if value_fn(worker) is not None]
+def sum_int_metric(
+    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[int]]
+) -> int:
+    values: List[int] = [
+        cast(int, value_fn(worker)) for worker in workers if value_fn(worker) is not None
+    ]
     return sum(values)
 
 
-def average_float_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[float]]) -> float:
-    values: List[float] = [cast(float, value_fn(worker)) for worker in workers if value_fn(worker) is not None]
+def average_float_metric(
+    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[float]]
+) -> float:
+    values: List[float] = [
+        cast(float, value_fn(worker)) for worker in workers if value_fn(worker) is not None
+    ]
     return 0.0 if not values else sum(values) / len(values)
 
 
-def concatenate_single_list_metric(workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Any]) -> List[Any]:
+def concatenate_single_list_metric(
+    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Any]
+) -> List[Any]:
     result = []
     for worker in workers:
         result.append(value_fn(worker))
@@ -23,8 +33,7 @@ def concatenate_single_list_metric(workers: List[WorkerMetrics], value_fn: Calla
 
 
 def concatenate_multi_list_metric(
-        workers: List[WorkerMetrics],
-        value_fn: Callable[[WorkerMetrics], List[Any]]
+    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], List[Any]]
 ) -> List[Any]:
     result = []
     for worker in workers:
@@ -58,19 +67,15 @@ def aggregate_worker_metrics(workers: List[WorkerMetrics]) -> AggregatedWorkerMe
         memory=sum_int_metric(workers, lambda w: w.memory),
         vgpus=sum_int_metric(workers, lambda w: w.vgpus),
         vram=sum_int_metric(workers, lambda w: int(w.vram) if w.vram is not None else None),
-
         cpu_percent=average_float_metric(workers, lambda w: w.cpu_percent),
         memory_percent=average_float_metric(workers, lambda w: w.memory_percent),
         vram_percent=average_float_metric(workers, lambda w: w.vram_percent),
         gpu_percent=average_float_metric(workers, lambda w: w.gpu_usage),
-
         gpu_drivers=concatenate_single_list_metric(workers, lambda w: w.gpu_driver),
-
         virtualization=concatenate_multi_list_metric(workers, lambda w: w.virtualization),
         supported_addons=concatenate_multi_list_metric(workers, lambda w: w.supported_addons),
         csi_drivers=aggregate_csi_drivers(workers),
-
-        aggregation_per_architecture={}
+        aggregation_per_architecture={},
     )
 
 

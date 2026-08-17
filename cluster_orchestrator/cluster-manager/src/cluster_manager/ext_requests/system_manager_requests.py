@@ -29,7 +29,9 @@ def send_aggregated_info_to_sm(assigned_cluster_id: str, time_interval_seconds: 
         metrics_msg.update({"jobs": job_management.aggregate_info(time_interval_seconds)})
 
         logger.debug("sending aggregated info to system manager")
-        threading.Thread(group=None, target=send_aggregated_info, args=(assigned_cluster_id, metrics_msg)).start()
+        threading.Thread(
+            group=None, target=send_aggregated_info, args=(assigned_cluster_id, metrics_msg)
+        ).start()
         prometheus_set_metrics(metrics_msg)
     except Exception as e:
         logger.error(e)
@@ -70,9 +72,7 @@ def send_aggregated_info(assigned_cluster_id: str, data: Any) -> None:
 def trigger_undeploy_and_re_deploy(job: Job, instance: JobInstance):
     try:
         job_management.delete_job_instance(
-            job.require_id(),
-            instance.require_instance_number(),
-            erase=False
+            job.require_id(), instance.require_instance_number(), erase=False
         )
         job_management.update_status(
             job.require_id(),

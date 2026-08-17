@@ -18,13 +18,7 @@ class NodeJobMessage(BaseModel):
     instance_number: int = Field(alias="instance")
     public_ip: Optional[str] = Field(alias="publicip", default=None)
 
-    @field_validator(
-        "job_name",
-        "status",
-        "status_detail",
-        "public_ip",
-        mode="before"
-    )
+    @field_validator("job_name", "status", "status_detail", "public_ip", mode="before")
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:
         if value == "":

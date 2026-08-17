@@ -17,7 +17,9 @@ logger = logging.getLogger("cluster_manager")
 
 
 def mark_inactive_as_failed(time_interval_seconds: int) -> None:
-    cutoff: float = (datetime.now(timezone.utc) - timedelta(seconds=time_interval_seconds)).timestamp()
+    cutoff: float = (
+        datetime.now(timezone.utc) - timedelta(seconds=time_interval_seconds)
+    ).timestamp()
     query: Any = {
         "instance_list": {
             "$elemMatch": {
@@ -36,31 +38,42 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
 
     for job in jobs:
         job_id: str = job.require_id()
-        job_status: Any = convert_to_status(job.status) if job.status is not None else LegacyStatus.LEGACY_0
+        job_status: Any = (
+            convert_to_status(job.status) if job.status is not None else LegacyStatus.LEGACY_0
+        )
 
-        all_instances: List[JobInstance] = job.instance_list if job.instance_list is not None else []
+        all_instances: List[JobInstance] = (
+            job.instance_list if job.instance_list is not None else []
+        )
         failed_instance_numbers: List[int] = []
         for instance in all_instances:
             if instance.instance_number is None:
-                logger.info("Missing instance number in mark_inactive_as_failed: %s", instance.model_dump_json(indent=2, by_alias=True))
+                logger.info(
+                    "Missing instance number in mark_inactive_as_failed: %s",
+                    instance.model_dump_json(indent=2, by_alias=True),
+                )
                 continue
 
             instance_number: int = instance.require_instance_number()
 
             timestamp = (
-                instance.last_modified_timestamp if instance.last_modified_timestamp is not None
+                instance.last_modified_timestamp
+                if instance.last_modified_timestamp is not None
                 else datetime.now(timezone.utc).timestamp()
             )
 
             if (
-                    timestamp < cutoff
-                    and job_status not in PositiveSchedulingStatus
-                    and job_status != DeploymentStatus.COMPLETED
+                timestamp < cutoff
+                and job_status not in PositiveSchedulingStatus
+                and job_status != DeploymentStatus.COMPLETED
             ):
                 update_instance(
                     job_id,
                     instance_number,
-                    JobInstance(status=DeploymentStatus.FAILED.value, status_detail="No suitable worker found")
+                    JobInstance(
+                        status=DeploymentStatus.FAILED.value,
+                        status_detail="No suitable worker found",
+                    ),
                 )
                 failed_instance_numbers.append(instance_number)
 
@@ -70,7 +83,7 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
                 {
                     "status": DeploymentStatus.FAILED.value,
                     "status_detail": "Failed instance(s): "
-                                     + ", ".join(str(x) for x in failed_instance_numbers),
+                    + ", ".join(str(x) for x in failed_instance_numbers),
                 },
             )
 
@@ -99,7 +112,9 @@ def create_new_job_instance(job: Job, instance_number: int) -> Job:
     if job_id is None or job_operations.get_job_by_id(job_id) is None:
         updated_job_obj = job_operations.create_job(job.model_dump(by_alias=True))
     else:
-        updated_job_obj = job_operations.append_job_instance(job_id, instance_number, job.model_dump(by_alias=True))
+        updated_job_obj = job_operations.append_job_instance(
+            job_id, instance_number, job.model_dump(by_alias=True)
+        )
     logger.debug(f"Created new job instance: {updated_job_obj}")
 
     updated_job = Job.model_validate(updated_job_obj)
@@ -107,11 +122,11 @@ def create_new_job_instance(job: Job, instance_number: int) -> Job:
 
 
 def update_deployed_instance_worker(
-        job_name: Optional[str],
-        instance_number: int,
-        status: Optional[str],
-        status_detail: Optional[str],
-        public_ip: Optional[str]
+    job_name: Optional[str],
+    instance_number: int,
+    status: Optional[str],
+    status_detail: Optional[str],
+    public_ip: Optional[str],
 ) -> None:
     job_objs: List[Any] = job_operations.get_jobs(job_name=job_name)
     if not job_objs:
@@ -126,10 +141,7 @@ def update_deployed_instance_worker(
 
 
 def update_status(
-        job_id: str,
-        instance_number: int,
-        status: Optional[str],
-        status_detail: Optional[str] = None
+    job_id: str, instance_number: int, status: Optional[str], status_detail: Optional[str] = None
 ) -> None:
     if status == DeploymentStatus.CREATED.value:
         return
@@ -157,9 +169,7 @@ def update_status(
 
 
 def update_instance_resources(
-        job_name: Optional[str],
-        instance_number: int,
-        resources: JobInstanceResources
+    job_name: Optional[str], instance_number: int, resources: JobInstanceResources
 ) -> bool:
     job_objs = job_operations.get_jobs(job_name=job_name)
     if not job_objs:
@@ -174,12 +184,16 @@ def update_instance_resources(
         DeploymentStatus.RUNNING.value,
         None,  # I don't believe resources every carry a status detail
     )
-    return update_instance(job_id, instance_number, JobInstance(
-        cpu_percent=resources.cpu_percent,
-        memory_percent=resources.memory_percent,
-        disk=resources.disk,
-        logs=resources.logs
-    ))
+    return update_instance(
+        job_id,
+        instance_number,
+        JobInstance(
+            cpu_percent=resources.cpu_percent,
+            memory_percent=resources.memory_percent,
+            disk=resources.disk,
+            logs=resources.logs,
+        ),
+    )
 
 
 def update_instance_node(job_id: str, instance_number: int, worker_id: str) -> bool:
@@ -238,7 +252,9 @@ def update_instance(job_id: str, instance_number: int, instance: JobInstance) ->
             updated_instance = instance
 
     # TODO: do we need to coerce None/null values to an empty string?
-    job_operations.update_job_instance(job_id, instance_number, updated_instance.model_dump(by_alias=True))
+    job_operations.update_job_instance(
+        job_id, instance_number, updated_instance.model_dump(by_alias=True)
+    )
     return True
 
 
@@ -262,11 +278,7 @@ def get_jobs_with_failed_instances() -> List[Job]:
     return [Job.model_validate(job_obj) for job_obj in job_objs]
 
 
-def delete_job_instance(
-        job_id: str,
-        instance_number: int,
-        erase: bool = True
-) -> None:
+def delete_job_instance(job_id: str, instance_number: int, erase: bool = True) -> None:
     # send instance undeployment to node
     job_obj = job_operations.get_job_by_id(job_id)
     if job_obj is None:
@@ -287,6 +299,7 @@ def delete_job_instance(
 
             if worker_id is not None:
                 from ..clients.mqtt_client import mqtt_publish_edge_delete
+
                 mqtt_publish_edge_delete(
                     worker_id,
                     job.require_job_name(),

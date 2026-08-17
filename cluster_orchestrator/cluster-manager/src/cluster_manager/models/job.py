@@ -33,7 +33,7 @@ class JobInstance(BaseModel):
         "logs",
         "host_ip",
         "worker_id",
-        mode="before"
+        mode="before",
     )
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:
@@ -87,15 +87,9 @@ class Job(BaseModel):
         if isinstance(value, int) or isinstance(value, float):
             return str(value)
 
-        raise ValueError('Unexpected type')
+        raise ValueError("Unexpected type")
 
-    @field_validator(
-        "job_name",
-        "status",
-        "status_detail",
-        "virtualization",
-        mode="before"
-    )
+    @field_validator("job_name", "status", "status_detail", "virtualization", mode="before")
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:
         if value == "":
@@ -127,13 +121,7 @@ class JobInstanceResources(BaseModel):
     disk: Optional[str] = None
 
     @field_validator(
-        "job_name",
-        "virtualization",
-        "logs",
-        "cpu_percent",
-        "memory_percent",
-        "disk",
-        mode="before"
+        "job_name", "virtualization", "logs", "cpu_percent", "memory_percent", "disk", mode="before"
     )
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:

@@ -93,10 +93,7 @@ def register_with_system_manager():
         # Send initial greeting (CS1Message)
         greeting = CS1Message()
         greeting.hello_service_manager = json.dumps(
-            {
-                "cluster_name": CONFIG.cluster_name,
-                "location": CONFIG.cluster_location
-            }
+            {"cluster_name": CONFIG.cluster_name, "location": CONFIG.cluster_location}
         )
         sc1: SC1Message = stub.handle_init_greeting(
             greeting, wait_for_ready=True, timeout=GRPC_REQUEST_TIMEOUT
@@ -146,7 +143,7 @@ def _register_in_background():
     time.sleep(2)
     try:
         register_with_system_manager()
-    except Exception: # noqa - we want to abort if anything fails at all
+    except Exception:  # noqa - we want to abort if anything fails at all
         logger.exception("Cluster registration failed; exiting worker for restart")
         sys.exit(1)
 
