@@ -1192,11 +1192,15 @@ name = "resource-abstractor-client"
 version = "0.0.0"
 source = { editable = "libraries/resource-abstractor-client" }
 dependencies = [
+    { name = "oakestra-utils" },
     { name = "requests" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "requests", specifier = "==2.27.1" }]
+requires-dist = [
+    { name = "oakestra-utils", editable = "libraries/oakestra-utils" },
+    { name = "requests", specifier = "==2.27.1" },
+]
 
 [[package]]
 name = "sentinels"
