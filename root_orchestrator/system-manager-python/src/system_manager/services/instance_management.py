@@ -25,7 +25,7 @@ def update_job_status(
     if job is None:
         return None
 
-    for instance in (instances if instances is not None else []):
+    for instance in instances if instances is not None else []:
         job_operations.update_job_instance(job_id, instance["instance_number"], instance)
 
     return job_operations.update_job_status(job_id, status, status_detail)

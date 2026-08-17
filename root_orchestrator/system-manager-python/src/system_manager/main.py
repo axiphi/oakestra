@@ -135,9 +135,7 @@ class ClusterRegistrationServicer(register_clusterServicer):
         return SC1Message(hello_cluster_manager="please send your cluster info")
 
     def handle_init_final(self, request, context):
-        logger.info(
-            f"gRPC - Received Cluster_Manager_to_System_Manager_1: {context.peer()}"
-        )
+        logger.info(f"gRPC - Received Cluster_Manager_to_System_Manager_1: {context.peer()}")
         logger.info(request)
         message = MessageToDict(request, preserving_proto_field_name=True)
         logger.info(f"Message: {message}, request {request}")

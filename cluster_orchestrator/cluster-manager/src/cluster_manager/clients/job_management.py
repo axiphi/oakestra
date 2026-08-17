@@ -161,7 +161,9 @@ def update_status(
                 instance.status_detail = status_detail
 
     # Update job-level status, but only set RUNNING once all instances are running
-    if status != DeploymentStatus.RUNNING.value or all(instance.status == DeploymentStatus.RUNNING.value for instance in instances):
+    if status != DeploymentStatus.RUNNING.value or all(
+        instance.status == DeploymentStatus.RUNNING.value for instance in instances
+    ):
         job.status = status
 
     job_operations.update_job(job_id, job.model_dump(by_alias=True))
