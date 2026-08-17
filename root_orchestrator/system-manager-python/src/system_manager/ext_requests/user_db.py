@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 
 from bson import ObjectId
-from organization_db import (
+from .organization_db import (
     mongo_add_organization,
     mongo_add_user_role_to_organization,
     mongo_delete_all_role_entrys_of_user,
