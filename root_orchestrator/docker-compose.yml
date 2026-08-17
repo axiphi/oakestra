@@ -12,8 +12,6 @@ services:
     image: system_manager
     build:
       context: system-manager/
-      args:
-        - LIB_BRANCH=${LIB_BRANCH:-develop}
     hostname: system_manager
     container_name: system_manager
     labels:
