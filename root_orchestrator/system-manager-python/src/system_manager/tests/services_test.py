@@ -74,7 +74,7 @@ def test_create_service_without_app():
         sla_first_app["applicationID"] = "63219606def3818062c12cd3"
 
         # EXEC
-        result, code = create_services_of_app("Admin", sla)
+        _result, code = create_services_of_app("Admin", sla)
 
         # ASSERT
         assert code == 404
@@ -105,7 +105,7 @@ def test_create_invalid_service_name():
         sla_first_app["microservices"][0]["microservice_name"] = "badname!"
 
         # EXEC
-        result, code = create_services_of_app("Admin", sla)
+        _result, code = create_services_of_app("Admin", sla)
 
     # ASSERT
     assert code == 422
@@ -131,7 +131,7 @@ def test_create_invalid_service_namespace():
         sla_first_app["microservices"][0]["microservice_namespace"] = "THIS.NAMESPACE.has.dots"
 
         # EXEC
-        result, code = create_services_of_app("Admin", sla)
+        _result, code = create_services_of_app("Admin", sla)
 
     # ASSERT
     assert code == 422
@@ -154,7 +154,7 @@ def test_delete_service():
 
         sla_first_app["applicationID"] = app["applicationID"]
 
-        result, code = create_services_of_app("Admin", sla)
+        result, _code = create_services_of_app("Admin", sla)
 
         app_before_deletion = app_operations.get_app_by_name_and_namespace(
             sla_first_app["application_name"],
@@ -232,7 +232,7 @@ def test_update_service_not_found():
 
         sla_first_app["applicationID"] = app["applicationID"]
 
-        result, code = create_services_of_app("Admin", sla)
+        _result, code = create_services_of_app("Admin", sla)
         app_before_deletion = app_operations.get_app_by_name_and_namespace(
             sla_first_app["application_name"],
             sla_first_app["application_namespace"],
@@ -244,7 +244,7 @@ def test_update_service_not_found():
         delete_service("Admin", service_to_be_updated_id)
 
         # EXEC
-        result, code = update_service("Admin", service_to_be_updated, service_to_be_updated_id)
+        _result, code = update_service("Admin", service_to_be_updated, service_to_be_updated_id)
 
         # ASSERT
         assert code == 501
@@ -301,7 +301,7 @@ def test_get_services():
         assert app is not None
 
         sla_first_app["applicationID"] = app["applicationID"]
-        result, code = create_services_of_app("Admin", sla)
+        _result, _code = create_services_of_app("Admin", sla)
 
         # EXEC
         services, code = get_all_services()

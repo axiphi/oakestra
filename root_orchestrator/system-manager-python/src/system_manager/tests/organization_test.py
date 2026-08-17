@@ -3,7 +3,7 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
-import mongomock as mongomock
+import mongomock
 import pymongo
 
 from ..ext_requests import mongodb_client, organization_db, user_db

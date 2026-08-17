@@ -14,7 +14,7 @@ from ..organizations.organization_management import (
     get_all_organizations,
     update_organization,
 )
-from ..roles.securityUtils import Role, require_role
+from ..roles.security_utils import Role, require_role
 from .schema_wrapper import SchemaWrapper
 
 logger = logging.getLogger("system_manager")

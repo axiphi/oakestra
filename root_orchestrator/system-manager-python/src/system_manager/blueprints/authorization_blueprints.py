@@ -3,7 +3,7 @@ import logging
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
-from ..roles.securityUtils import get_jwt_organization, identity_is_username, jwt_auth_required
+from ..roles.security_utils import get_jwt_organization, identity_is_username, jwt_auth_required
 from ..users.auth import user_get_roles
 from .schema_wrapper import SchemaWrapper
 

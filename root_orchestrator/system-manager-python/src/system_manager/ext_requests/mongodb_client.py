@@ -4,7 +4,7 @@ import os
 from flask_pymongo import PyMongo
 
 MONGO_URL = os.environ.get("ROOT_MONGO_URL", "localhost")
-MONGO_PORT = os.environ.get("ROOT_MONGO_PORT", 10007)
+MONGO_PORT = os.environ.get("ROOT_MONGO_PORT", "10007")
 
 MONGO_ADDR_USERS = f"mongodb://{MONGO_URL}:{MONGO_PORT}/users"
 

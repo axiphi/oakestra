@@ -6,7 +6,7 @@ from flask import current_app, request
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
-from ..roles.securityUtils import (
+from ..roles.security_utils import (
     Role,
     get_jwt_organization,
     identity_is_username,

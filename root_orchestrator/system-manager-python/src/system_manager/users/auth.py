@@ -9,7 +9,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from ..ext_requests import organization_db, user_db
 from ..mail import mail
 from ..mail.mail import ResetPasswordMailFactory
-from ..roles import securityUtils
+from ..roles import security_utils
 
 mail_user = os.environ.get("MAIL_USER", "")
 
@@ -72,7 +72,7 @@ def user_login(content):
             logging.log(level=logging.ERROR, msg="User not found")
             roles = get_user_roles_from_organization(organization_struct, str(user_struct["_id"]))
             if check_password_hash(user_struct.get("password"), password):
-                access_token = securityUtils.create_jwt_auth_access_token(
+                access_token = security_utils.create_jwt_auth_access_token(
                     identity=username,
                     additional_claims={
                         "user": username,
@@ -80,7 +80,7 @@ def user_login(content):
                         "organization": organization_id,
                     },
                 )
-                refresh_token = securityUtils.create_jwt_auth_refresh_token(
+                refresh_token = security_utils.create_jwt_auth_refresh_token(
                     identity=username,
                     additional_claims={
                         "user": username,
@@ -106,12 +106,12 @@ def user_login(content):
 
 def user_token_refresh(username):
     user = user_db.mongo_get_user_by_name(username)
-    claims = securityUtils.get_jwt_auth_claims()
+    claims = security_utils.get_jwt_auth_claims()
 
     if user is None:
         return {}
     return {
-        "token": securityUtils.create_jwt_auth_access_token(
+        "token": security_utils.create_jwt_auth_access_token(
             identity=username,
             additional_claims={
                 "user": username,

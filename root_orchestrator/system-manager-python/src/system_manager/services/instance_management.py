@@ -18,14 +18,14 @@ def update_job_status(
     job_id: str,
     status: Status,
     status_detail: str,
-    instances: list[dict] = [],
+    instances: list[dict] | None = None,
 ) -> dict | None:
     job = job_operations.get_job_by_id(job_id)
 
     if job is None:
         return None
 
-    for instance in instances:
+    for instance in (instances if instances is not None else []):
         job_operations.update_job_instance(job_id, instance["instance_number"], instance)
 
     return job_operations.update_job_status(job_id, status, status_detail)

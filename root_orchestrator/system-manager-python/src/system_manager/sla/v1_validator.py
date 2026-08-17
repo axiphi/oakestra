@@ -1,2 +1,2 @@
 def yaml_reader(file):
-    raise Exception("Deprecated")
+    raise RuntimeError("Deprecated")

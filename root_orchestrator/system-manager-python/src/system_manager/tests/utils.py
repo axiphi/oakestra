@@ -4,8 +4,7 @@ from random import randint
 def get_fake_sla_app(name, services=None):
     microservice_list = []
     if services is not None:
-        for service in services:
-            microservice_list.append(service)
+        microservice_list = list(services).copy()
     return {
         "sla_version": "v2.0",
         "customerID": "Admin",
@@ -78,8 +77,7 @@ def get_fake_db_service(
 ):
     instance_list = []
     if instances is not None:
-        for instance in instances:
-            instance_list.append(instance)
+        instance_list = list(instances).copy()
 
     return {
         "applicationID": appid,

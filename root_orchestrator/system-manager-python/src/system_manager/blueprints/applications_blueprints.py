@@ -6,7 +6,7 @@ from flask_restful import Resource
 from flask_smorest import Blueprint, abort
 
 from ..ext_requests.user_db import mongo_get_user_by_name
-from ..roles.securityUtils import Role, get_jwt_organization, require_role
+from ..roles.security_utils import Role, get_jwt_organization, require_role
 
 # ........ Functions for user management ...............#
 # ......................................................#

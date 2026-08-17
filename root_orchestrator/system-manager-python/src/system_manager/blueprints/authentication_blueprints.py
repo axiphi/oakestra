@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 from flask_restful import Resource
 from flask_smorest import abort
 
-from ..roles.securityUtils import (
+from ..roles.security_utils import (
     Role,
     get_jwt_auth_identity,
     get_jwt_organization,

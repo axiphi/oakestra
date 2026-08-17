@@ -43,26 +43,25 @@ def register_app(applications, userid):
 
         app_id = app.get("_id")
         # register microservices as well if any
-        if app_id:
-            if len(microservices) > 0:
-                try:
-                    application["microservices"] = microservices
-                    application["applicationID"] = app_id
-                    result, status = create_services_of_app(
-                        userid,
-                        {
-                            "sla_version": applications["sla_version"],
-                            "customerID": userid,
-                            "applications": [application],
-                        },
-                    )
-                    if status != 200:
-                        delete_app(app_id, userid)
-                        return result, status
-                except Exception:
-                    logger.error(traceback.format_exc())
+        if app_id and len(microservices) > 0:
+            try:
+                application["microservices"] = microservices
+                application["applicationID"] = app_id
+                result, status = create_services_of_app(
+                    userid,
+                    {
+                        "sla_version": applications["sla_version"],
+                        "customerID": userid,
+                        "applications": [application],
+                    },
+                )
+                if status != 200:
                     delete_app(app_id, userid)
-                    return {"message": "error during the registration of the microservices"}, 500
+                    return result, status
+            except Exception:
+                logger.error(traceback.format_exc())
+                delete_app(app_id, userid)
+                return {"message": "error during the registration of the microservices"}, 500
 
     return get_user_apps(userid)
 
@@ -100,9 +99,7 @@ def get_user_app(userid, appid):
 def valid_app_requirements(app):
     if len(app["application_name"]) > 10 or len(app["application_name"]) < 1:
         return False
-    if len(app["application_namespace"]) > 10 or len(app["application_namespace"]) < 1:
-        return False
-    return True
+    return not (len(app["application_namespace"]) > 10 or len(app["application_namespace"]) < 1)
 
 
 def get_all_applications():
