@@ -1,31 +1,33 @@
 from collections import defaultdict
-from typing import Dict, Any, List, Optional, Callable, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from resource_abstractor_client import candidate_operations
-from ..models.worker import WorkerMetrics, AggregatedWorkerMetrics
+
+from ..models.worker import AggregatedWorkerMetrics, WorkerMetrics
 
 
 def sum_int_metric(
-    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[int]]
+    workers: list[WorkerMetrics], value_fn: Callable[[WorkerMetrics], int | None]
 ) -> int:
-    values: List[int] = [
+    values: list[int] = [
         cast(int, value_fn(worker)) for worker in workers if value_fn(worker) is not None
     ]
     return sum(values)
 
 
 def average_float_metric(
-    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Optional[float]]
+    workers: list[WorkerMetrics], value_fn: Callable[[WorkerMetrics], float | None]
 ) -> float:
-    values: List[float] = [
+    values: list[float] = [
         cast(float, value_fn(worker)) for worker in workers if value_fn(worker) is not None
     ]
     return 0.0 if not values else sum(values) / len(values)
 
 
 def concatenate_single_list_metric(
-    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Any]
-) -> List[Any]:
+    workers: list[WorkerMetrics], value_fn: Callable[[WorkerMetrics], Any]
+) -> list[Any]:
     result = []
     for worker in workers:
         result.append(value_fn(worker))
@@ -33,15 +35,15 @@ def concatenate_single_list_metric(
 
 
 def concatenate_multi_list_metric(
-    workers: List[WorkerMetrics], value_fn: Callable[[WorkerMetrics], List[Any]]
-) -> List[Any]:
+    workers: list[WorkerMetrics], value_fn: Callable[[WorkerMetrics], list[Any]]
+) -> list[Any]:
     result = []
     for worker in workers:
         result.extend(value_fn(worker))
     return result
 
 
-def aggregate_csi_drivers(workers: List[WorkerMetrics]) -> List[str]:
+def aggregate_csi_drivers(workers: list[WorkerMetrics]) -> list[str]:
     """Merge csi_drivers from a worker into a deduplicated list of driver names.
 
     Node Engine advertises drivers as objects: {csi_driver_name, csi_driver_endpoint}.
@@ -59,7 +61,7 @@ def aggregate_csi_drivers(workers: List[WorkerMetrics]) -> List[str]:
     return aggregated_drivers
 
 
-def aggregate_worker_metrics(workers: List[WorkerMetrics]) -> AggregatedWorkerMetrics:
+def aggregate_worker_metrics(workers: list[WorkerMetrics]) -> AggregatedWorkerMetrics:
     # TODO: discuss adding back non-canonical metrics
     return AggregatedWorkerMetrics(
         active_nodes=len(workers),
@@ -79,14 +81,14 @@ def aggregate_worker_metrics(workers: List[WorkerMetrics]) -> AggregatedWorkerMe
     )
 
 
-def compute_aggregated_worker_metrics() -> Optional[AggregatedWorkerMetrics]:
+def compute_aggregated_worker_metrics() -> AggregatedWorkerMetrics | None:
     worker_msgs = candidate_operations.get_candidates(active=True)
     if not worker_msgs:
         return None
 
     worker_metrics = [WorkerMetrics.model_validate(worker_msg) for worker_msg in worker_msgs]
 
-    workers_metrics_by_arch: Dict[str, List[WorkerMetrics]] = defaultdict(list)
+    workers_metrics_by_arch: dict[str, list[WorkerMetrics]] = defaultdict(list)
     for metrics_entry in worker_metrics:
         if metrics_entry.architecture is None:
             continue

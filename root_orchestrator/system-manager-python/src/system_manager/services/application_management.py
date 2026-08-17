@@ -2,8 +2,8 @@ import logging
 import traceback
 
 from resource_abstractor_client import app_operations
-from ..sla.versioned_sla_parser import SLAFormatError, parse_sla_json
 
+from ..sla.versioned_sla_parser import SLAFormatError, parse_sla_json
 from .service_management import create_services_of_app, delete_service
 
 logger = logging.getLogger("system_manager")
@@ -81,7 +81,7 @@ def update_app(appid, userid, fields):
 def delete_app(appid, userid):
     application = app_operations.get_app_by_id(appid, userid)
     if application is None:
-        logging.warn(f"Application {appid} not found")
+        logging.warning(f"Application {appid} not found")
         return None
 
     for service_id in application.get("microservices"):

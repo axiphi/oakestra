@@ -6,6 +6,7 @@ from flask.views import MethodView
 from flask_jwt_extended import jwt_required
 from flask_restful import Resource
 from flask_smorest import abort
+
 from ..roles.securityUtils import (
     Role,
     get_jwt_auth_identity,
@@ -14,7 +15,6 @@ from ..roles.securityUtils import (
     require_role,
 )
 from ..users.auth import user_login, user_register, user_token_refresh
-
 from .jwt_wrapper import BlueprintExt
 
 logger = logging.getLogger("system_manager")

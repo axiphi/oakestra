@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any
 
 import requests
 from flask_jwt_extended.typing import ExpiresDelta, Fresh
@@ -18,7 +18,7 @@ JWT_GENERATOR_ADDR = (
 def create_access_token(
     identity: Any,
     fresh: Fresh = False,
-    expires_delta: Optional[ExpiresDelta] = None,
+    expires_delta: ExpiresDelta | None = None,
     additional_claims=None,
     additional_headers=None,
 ):
@@ -43,7 +43,7 @@ def create_access_token(
 
 def create_refresh_token(
     identity: Any,
-    expires_delta: Optional[ExpiresDelta] = None,
+    expires_delta: ExpiresDelta | None = None,
     additional_claims=None,
     additional_headers=None,
 ):

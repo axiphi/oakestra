@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import mongomock as mongomock
 import pymongo
+
 from ..ext_requests import mongodb_client, organization_db, user_db
 
 sys.modules["ext_requests.net_plugin_requests"] = unittest.mock.Mock()

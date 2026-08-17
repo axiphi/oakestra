@@ -1,11 +1,11 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from prometheus_client import Gauge
 
 metrics = {}
-cluster_id: Optional[str] = None
-logger: Optional[logging.Logger] = None
+cluster_id: str | None = None
+logger: logging.Logger | None = None
 
 
 def add_or_set_metric(name: Any, value: Any) -> None:
@@ -32,6 +32,6 @@ def prometheus_init_gauge_metrics(assigned_cluster_id: str, app_logger: logging.
     print("prometheus gauge metrics initialized.")
 
 
-def prometheus_set_metrics(data: Dict[Any, Any]) -> None:
+def prometheus_set_metrics(data: dict[Any, Any]) -> None:
     for metric_name, metric_value in data.items():
         add_or_set_metric(metric_name, metric_value)

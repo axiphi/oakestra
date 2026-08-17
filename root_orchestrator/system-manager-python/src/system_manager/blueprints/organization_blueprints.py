@@ -7,6 +7,7 @@ from flask import request
 from flask.views import MethodView
 from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint, abort
+
 from ..organizations.organization_management import (
     add_organization,
     delete_organization,
@@ -14,7 +15,6 @@ from ..organizations.organization_management import (
     update_organization,
 )
 from ..roles.securityUtils import Role, require_role
-
 from .schema_wrapper import SchemaWrapper
 
 logger = logging.getLogger("system_manager")

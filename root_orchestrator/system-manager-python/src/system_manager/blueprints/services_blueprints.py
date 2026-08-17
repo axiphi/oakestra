@@ -1,14 +1,14 @@
 import logging
 
-from ..sla import schema as sla_schema
 from bson import json_util
 from flask import request
 from flask.views import MethodView
 from flask_restful import Resource
 from flask_smorest import Blueprint, abort
+
 from ..roles.securityUtils import Role, get_jwt_auth_identity, jwt_auth_required, require_role
 from ..services import service_management
-
+from ..sla import schema as sla_schema
 from .schema_wrapper import SchemaWrapper
 
 # ........ Functions for job management ...............#

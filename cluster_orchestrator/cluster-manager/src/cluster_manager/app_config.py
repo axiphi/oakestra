@@ -1,9 +1,8 @@
 import os
-from typing import Optional, NamedTuple
 from dataclasses import dataclass
 
 
-def _load_optional_env_str(name: str) -> Optional[str]:
+def _load_optional_env_str(name: str) -> str | None:
     return os.environ.get(name)
 
 
@@ -46,9 +45,9 @@ class EnvironmentConfig:
     cluster_location: str
 
     # optional vars
-    mqtt_cert: Optional[str]
-    cluster_keyfile_password: Optional[str]
-    log_level: Optional[str]
+    mqtt_cert: str | None
+    cluster_keyfile_password: str | None
+    log_level: str | None
 
     @classmethod
     def load(cls) -> "EnvironmentConfig":
@@ -85,7 +84,7 @@ SYSTEM_MANAGER_ADDR = _build_http_url(CONFIG.system_manager_url, CONFIG.system_m
 
 @dataclass
 class RuntimeConfig:
-    assigned_cluster_id: Optional[str] = None
+    assigned_cluster_id: str | None = None
 
 
 RUNTIME_CONFIG = RuntimeConfig()

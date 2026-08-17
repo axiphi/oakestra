@@ -5,18 +5,18 @@ import traceback
 from typing import Any
 
 import requests
-
 from oakestra_utils.types.statuses import (
     DeploymentStatus,
     NegativeSchedulingStatus,
     PositiveSchedulingStatus,
     convert_to_status,
 )
-from .scheduler_requests import scheduler_request_deploy
+
 from ..app_config import SYSTEM_MANAGER_ADDR
 from ..clients import job_management, resource_aggregation
 from ..clients.my_prometheus_client import prometheus_set_metrics
 from ..models.job import Job, JobInstance
+from .scheduler_requests import scheduler_request_deploy
 
 logger = logging.getLogger("cluster_manager")
 

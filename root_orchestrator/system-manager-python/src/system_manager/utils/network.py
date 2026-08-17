@@ -6,7 +6,7 @@ def is_ipv6(address):
     try:
         socket.inet_pton(socket.AF_INET6, address)
         return True
-    except socket.error:
+    except OSError:
         return False
 
 

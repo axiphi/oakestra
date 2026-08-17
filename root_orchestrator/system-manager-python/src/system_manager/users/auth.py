@@ -3,12 +3,13 @@ import logging
 import os
 from datetime import datetime
 
-from ..ext_requests import organization_db, user_db
 from flask import abort
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from ..ext_requests import organization_db, user_db
 from ..mail import mail
 from ..mail.mail import ResetPasswordMailFactory
 from ..roles import securityUtils
-from werkzeug.security import check_password_hash, generate_password_hash
 
 mail_user = os.environ.get("MAIL_USER", "")
 

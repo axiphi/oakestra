@@ -13,7 +13,7 @@ net_plugin = sys.modules["system_manager.ext_requests.net_plugin_requests"]
 net_plugin.net_inform_service_deploy = MagicMock()
 
 # we ignore E402 because we need to import the service_management module after the mock
-from ..services.service_management import (  # noqa: E402
+from ..services.service_management import (
     create_services_of_app,
     delete_service,
     generate_db_structure,

@@ -1,21 +1,21 @@
 import json
 import logging
 import re
-from typing import Any, Optional, Dict
+from typing import Any
 
 import paho.mqtt.client as paho_mqtt
 from paho.mqtt.client import MQTTMessage
+from resource_abstractor_client import candidate_operations
 from typing_extensions import assert_type
 
-from resource_abstractor_client import candidate_operations
-from .job_management import update_instance_resources, update_deployed_instance_worker
 from ..app_config import CONFIG
 from ..models.job import Job
-from ..models.mqtt import NodeJobMessage, NodeJobResourceMessage, NodeInformationMessage
+from ..models.mqtt import NodeInformationMessage, NodeJobMessage, NodeJobResourceMessage
+from .job_management import update_deployed_instance_worker, update_instance_resources
 
 logger = logging.getLogger("cluster_manager")
 
-_mqtt: Optional[paho_mqtt.Client] = None
+_mqtt: paho_mqtt.Client | None = None
 
 
 def ensure_mqtt() -> paho_mqtt.Client:
@@ -36,7 +36,7 @@ def handle_connect(_client: Any, _userdata: Any, _flags: Any, _rc: Any) -> None:
 
 def handle_logging(_client: Any, _userdata: Any, level: str, buf: Any) -> None:
     if level == "MQTT_LOG_ERR":
-        logger.info("Error: {}".format(buf))
+        logger.info(f"Error: {buf}")
 
 
 # TODO: add type validation for all message types
@@ -149,7 +149,7 @@ def initialize_mqtt():
 def mqtt_publish_edge_deploy(worker_id: str, job: Job, instance_number: int):
     topic = "nodes/" + worker_id + "/control/deploy"
 
-    data: Dict[str, Any] = job.model_dump(by_alias=True)
+    data: dict[str, Any] = job.model_dump(by_alias=True)
     data["instance_number"] = instance_number
 
     mqtt = ensure_mqtt()
@@ -157,11 +157,11 @@ def mqtt_publish_edge_deploy(worker_id: str, job: Job, instance_number: int):
 
 
 def mqtt_publish_edge_delete(
-    worker_id: str, job_name: str, instance_number: int, runtime: Optional[str] = "docker"
+    worker_id: str, job_name: str, instance_number: int, runtime: str | None = "docker"
 ):
     topic = "nodes/" + worker_id + "/control/delete"
 
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "job_name": job_name,
         "virtualization": runtime,
         "instance_number": instance_number,

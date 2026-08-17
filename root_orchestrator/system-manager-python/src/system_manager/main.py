@@ -9,12 +9,7 @@ from pathlib import Path
 
 import grpc
 import requests
-from .blueprints import blueprints
 from bson import json_util
-from .ext_requests.jwt_generator_requests import get_public_key
-from .ext_requests.mongodb_client import mongo_init
-from .ext_requests.net_plugin_requests import net_register_cluster
-from .ext_requests.user_db import create_admin
 from flask import Flask, flash, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -22,15 +17,21 @@ from flask_smorest import Api
 from flask_socketio import SocketIO
 from flask_swagger_ui import get_swaggerui_blueprint
 from google.protobuf.json_format import MessageToDict
+from resource_abstractor_client import candidate_operations
+from werkzeug.utils import redirect, secure_filename
+
+from .blueprints import blueprints
+from .ext_requests.jwt_generator_requests import get_public_key
+from .ext_requests.mongodb_client import mongo_init
+from .ext_requests.net_plugin_requests import net_register_cluster
+from .ext_requests.user_db import create_admin
 from .proto.cluster_registration_pb2 import SC1Message, SC2Message
 from .proto.cluster_registration_pb2_grpc import (
     add_register_clusterServicer_to_server,
     register_clusterServicer,
 )
-from resource_abstractor_client import candidate_operations
 from .sm_logging import configure_logging
 from .utils.network import add_brackets_if_ipv6
-from werkzeug.utils import redirect, secure_filename
 
 my_logger = configure_logging()
 logger = logging.getLogger("system_manager")
@@ -111,9 +112,7 @@ def _is_cluster_reachable(cluster_address, cluster_port):
     gRPC handshake reaches the root (the registration call happens at module
     import time, before the worker enters the accept loop).
     """
-    url = "http://{}:{}/api/cluster/status".format(
-        add_brackets_if_ipv6(cluster_address), cluster_port
-    )
+    url = f"http://{add_brackets_if_ipv6(cluster_address)}:{cluster_port}/api/cluster/status"
     deadline = time.monotonic() + CLUSTER_REACHABILITY_TOTAL_WINDOW
     last_exc = None
     while True:
@@ -126,22 +125,22 @@ def _is_cluster_reachable(cluster_address, cluster_port):
             if time.monotonic() >= deadline:
                 break
             time.sleep(2)
-    logger.error("Cluster reachability probe failed for {}: {}".format(url, last_exc))
+    logger.error(f"Cluster reachability probe failed for {url}: {last_exc}")
     return False
 
 
 class ClusterRegistrationServicer(register_clusterServicer):
     def handle_init_greeting(self, request, context):
-        logger.info("gRPC - Cluster_Manager connected: {}".format(context.peer()))
+        logger.info(f"gRPC - Cluster_Manager connected: {context.peer()}")
         return SC1Message(hello_cluster_manager="please send your cluster info")
 
     def handle_init_final(self, request, context):
         logger.info(
-            "gRPC - Received Cluster_Manager_to_System_Manager_1: {}".format(context.peer())
+            f"gRPC - Received Cluster_Manager_to_System_Manager_1: {context.peer()}"
         )
         logger.info(request)
         message = MessageToDict(request, preserving_proto_field_name=True)
-        logger.info("Message: {}, request {}".format(message, request))
+        logger.info(f"Message: {message}, request {request}")
 
         cluster_address = message.get("cluster_address", "").strip()
         if not cluster_address:
@@ -155,7 +154,7 @@ class ClusterRegistrationServicer(register_clusterServicer):
             )
 
         cluster_port = str(message["manager_port"])
-        logger.info("Cluster address: {} port: {}".format(cluster_address, cluster_port))
+        logger.info(f"Cluster address: {cluster_address} port: {cluster_port}")
 
         if not _is_cluster_reachable(cluster_address, cluster_port):
             logger.error(
@@ -165,7 +164,7 @@ class ClusterRegistrationServicer(register_clusterServicer):
             )
             context.abort(
                 grpc.StatusCode.FAILED_PRECONDITION,
-                "cluster not reachable at {}:{}".format(cluster_address, cluster_port),
+                f"cluster not reachable at {cluster_address}:{cluster_port}",
             )
 
         cluster_data = {
@@ -176,7 +175,7 @@ class ClusterRegistrationServicer(register_clusterServicer):
             "candidate_name": message["cluster_name"],
         }
 
-        logger.info("Cluster data: {}".format(cluster_data))
+        logger.info(f"Cluster data: {cluster_data}")
         cluster = candidate_operations.create_candidate(cluster_data)
         if cluster is None:
             logger.error("Creating cluster failed")
@@ -240,7 +239,7 @@ def start_flask_server():
 
 
 def start_grpc_server():
-    my_logger.info("Start gRPC Server on port {}".format(MY_PORT_GRPC))
+    my_logger.info(f"Start gRPC Server on port {MY_PORT_GRPC}")
     serve()
 
 

@@ -11,7 +11,7 @@ def mongo_add_organization(organization):
     logger.info("MONGODB - insert organization...")
     new_orga = db.mongo_organization.insert_one(organization)
     inserted_id = new_orga.inserted_id
-    logger.info("MONGODB - organization {} inserted".format(str(inserted_id)))
+    logger.info(f"MONGODB - organization {inserted_id!s} inserted")
     return str(inserted_id)
 
 

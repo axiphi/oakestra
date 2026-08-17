@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Any, Dict
+from typing import Any
 
 from oakestra_utils.types.statuses import (
     DeploymentStatus,
@@ -10,6 +10,7 @@ from oakestra_utils.types.statuses import (
     convert_to_status,
 )
 from resource_abstractor_client import candidate_operations, job_operations
+
 from ..ext_requests.scheduler_requests import scheduler_request_deploy
 from ..models.job import Job, JobInstance, JobInstanceResources
 
@@ -30,11 +31,11 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
         }
     }
 
-    job_objs: List[Any] = job_operations.get_jobs(**query)
+    job_objs: list[Any] = job_operations.get_jobs(**query)
     if job_objs is None:
         return
 
-    jobs: List[Job] = [Job.model_validate(job_obj) for job_obj in job_objs]
+    jobs: list[Job] = [Job.model_validate(job_obj) for job_obj in job_objs]
 
     for job in jobs:
         job_id: str = job.require_id()
@@ -42,10 +43,10 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
             convert_to_status(job.status) if job.status is not None else LegacyStatus.LEGACY_0
         )
 
-        all_instances: List[JobInstance] = (
+        all_instances: list[JobInstance] = (
             job.instance_list if job.instance_list is not None else []
         )
-        failed_instance_numbers: List[int] = []
+        failed_instance_numbers: list[int] = []
         for instance in all_instances:
             if instance.instance_number is None:
                 logger.info(
@@ -90,7 +91,7 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
     return
 
 
-def aggregate_info(time_interval_seconds: int) -> List[Dict[str, Any]]:
+def aggregate_info(time_interval_seconds: int) -> list[dict[str, Any]]:
     mark_inactive_as_failed(time_interval_seconds)
     jobs = job_operations.get_jobs() or []
 
@@ -122,13 +123,13 @@ def create_new_job_instance(job: Job, instance_number: int) -> Job:
 
 
 def update_deployed_instance_worker(
-    job_name: Optional[str],
+    job_name: str | None,
     instance_number: int,
-    status: Optional[str],
-    status_detail: Optional[str],
-    public_ip: Optional[str],
+    status: str | None,
+    status_detail: str | None,
+    public_ip: str | None,
 ) -> None:
-    job_objs: List[Any] = job_operations.get_jobs(job_name=job_name)
+    job_objs: list[Any] = job_operations.get_jobs(job_name=job_name)
     if not job_objs:
         return
 
@@ -141,7 +142,7 @@ def update_deployed_instance_worker(
 
 
 def update_status(
-    job_id: str, instance_number: int, status: Optional[str], status_detail: Optional[str] = None
+    job_id: str, instance_number: int, status: str | None, status_detail: str | None = None
 ) -> None:
     if status == DeploymentStatus.CREATED.value:
         return
@@ -160,16 +161,14 @@ def update_status(
                 instance.status_detail = status_detail
 
     # Update job-level status, but only set RUNNING once all instances are running
-    if status != DeploymentStatus.RUNNING.value:
-        job.status = status
-    elif all(instance.status == DeploymentStatus.RUNNING.value for instance in instances):
+    if status != DeploymentStatus.RUNNING.value or all(instance.status == DeploymentStatus.RUNNING.value for instance in instances):
         job.status = status
 
     job_operations.update_job(job_id, job.model_dump(by_alias=True))
 
 
 def update_instance_resources(
-    job_name: Optional[str], instance_number: int, resources: JobInstanceResources
+    job_name: str | None, instance_number: int, resources: JobInstanceResources
 ) -> bool:
     job_objs = job_operations.get_jobs(job_name=job_name)
     if not job_objs:
@@ -263,7 +262,7 @@ def deploy_job(job: Job, instance_number: int) -> None:
     scheduler_request_deploy(updated_job, instance_number)
 
 
-def get_jobs_with_failed_instances() -> List[Job]:
+def get_jobs_with_failed_instances() -> list[Job]:
     query = {
         "$or": [
             {"instance_list.status": DeploymentStatus.FAILED.value},

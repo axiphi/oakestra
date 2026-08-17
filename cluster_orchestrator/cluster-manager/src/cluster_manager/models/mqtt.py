@@ -1,4 +1,4 @@
-from typing import Optional, Any, List
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -12,11 +12,11 @@ class NodeInformationMessage(BaseModel):
 class NodeJobMessage(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    job_name: Optional[str] = Field(alias="sname", default=None)
-    status: Optional[str] = None
-    status_detail: Optional[str] = None
+    job_name: str | None = Field(alias="sname", default=None)
+    status: str | None = None
+    status_detail: str | None = None
     instance_number: int = Field(alias="instance")
-    public_ip: Optional[str] = Field(alias="publicip", default=None)
+    public_ip: str | None = Field(alias="publicip", default=None)
 
     @field_validator("job_name", "status", "status_detail", "public_ip", mode="before")
     @classmethod
@@ -29,4 +29,4 @@ class NodeJobMessage(BaseModel):
 class NodeJobResourceMessage(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    instance_resources: List[JobInstanceResources] = Field(alias="services", default=[])
+    instance_resources: list[JobInstanceResources] = Field(alias="services", default=[])

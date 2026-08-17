@@ -14,11 +14,11 @@ from flask_socketio import SocketIO
 from flask_swagger_ui import get_swaggerui_blueprint
 from prometheus_client import start_http_server
 
+from .app_config import CONFIG, GRPC_REQUEST_TIMEOUT, RUNTIME_CONFIG, SYSTEM_MANAGER_GRPC_ADDR
+from .app_logging import configure_logging
 from .blueprints import blueprints
 from .clients.mqtt_client import initialize_mqtt
 from .clients.my_prometheus_client import prometheus_init_gauge_metrics
-from .app_logging import configure_logging
-from .app_config import CONFIG, SYSTEM_MANAGER_GRPC_ADDR, GRPC_REQUEST_TIMEOUT, RUNTIME_CONFIG
 from .ext_requests.system_manager_requests import (
     re_deploy_dead_jobs_routine,
     send_aggregated_info_to_sm,
@@ -143,7 +143,7 @@ def _register_in_background():
     time.sleep(2)
     try:
         register_with_system_manager()
-    except Exception:  # noqa - we want to abort if anything fails at all
+    except Exception:
         logger.exception("Cluster registration failed; exiting worker for restart")
         sys.exit(1)
 

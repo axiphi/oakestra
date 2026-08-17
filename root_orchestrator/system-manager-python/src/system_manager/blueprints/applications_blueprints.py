@@ -1,10 +1,11 @@
 from bson import json_util
-from ..ext_requests.user_db import mongo_get_user_by_name
 from flask import request
 from flask.views import MethodView
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restful import Resource
 from flask_smorest import Blueprint, abort
+
+from ..ext_requests.user_db import mongo_get_user_by_name
 from ..roles.securityUtils import Role, get_jwt_organization, require_role
 
 # ........ Functions for user management ...............#
@@ -18,7 +19,6 @@ from ..services.application_management import (
     update_app,
 )
 from ..sla.schema import sla_schema
-
 from .schema_wrapper import SchemaWrapper
 
 applicationblp = Blueprint(

@@ -1,12 +1,12 @@
 import logging
 
+from resource_abstractor_client import app_operations, job_operations
+
 from ..ext_requests.net_plugin_requests import (
     net_inform_service_deploy,
     net_inform_service_undeploy,
 )
-from resource_abstractor_client import app_operations, job_operations
 from ..sla.versioned_sla_parser import SLAFormatError, parse_sla_json
-
 from .instance_management import request_scale_down_instance
 
 logger = logging.getLogger("system_manager")

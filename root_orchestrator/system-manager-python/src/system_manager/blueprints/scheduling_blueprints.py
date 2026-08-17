@@ -5,6 +5,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 from oakestra_utils.types.statuses import convert_to_status
 from resource_abstractor_client import job_operations
+
 from ..services.instance_management import instance_scale_up_scheduled_handler
 
 schedulingbp = Blueprint("Scheduling", "scheduling-completed", url_prefix="/api/result")

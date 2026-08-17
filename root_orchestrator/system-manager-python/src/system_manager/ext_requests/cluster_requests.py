@@ -2,6 +2,7 @@ import logging
 
 import requests
 from resource_abstractor_client import candidate_operations, job_operations
+
 from ..services.cluster_management import find_cluster_of_job
 from ..utils.network import sanitize
 

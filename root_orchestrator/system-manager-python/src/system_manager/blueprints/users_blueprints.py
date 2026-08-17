@@ -5,6 +5,7 @@ from bson import json_util
 from flask import current_app, request
 from flask.views import MethodView
 from flask_smorest import Blueprint
+
 from ..roles.securityUtils import (
     Role,
     get_jwt_organization,

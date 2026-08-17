@@ -1,8 +1,9 @@
 import logging
 
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required, verify_jwt_in_request
+
 from ..ext_requests.jwt_generator_requests import create_access_token, create_refresh_token
 from ..ext_requests.user_db import mongo_get_user_by_name
-from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required, verify_jwt_in_request
 
 logger = logging.getLogger("system_manager")
 
@@ -66,7 +67,7 @@ def jwt_auth_required():
                 logger.error(e)
                 return {"message": "Missing authentication token"}, 401
             claims = get_jwt()
-            if not ("file_access_token" in claims and claims["file_access_token"]):
+            if not (claims.get("file_access_token")):
                 return fn(*args, **kwargs)
             else:
                 return {"message": "Only access token allowed"}, 401

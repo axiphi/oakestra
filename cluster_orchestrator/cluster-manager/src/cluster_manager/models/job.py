@@ -1,4 +1,4 @@
-from typing import Optional, List, Any
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -6,22 +6,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class JobInstance(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    instance_number: Optional[int] = None
-    status: Optional[str] = None
-    status_detail: Optional[str] = None
-    public_ip: Optional[str] = Field(alias="publicip", default=None)
+    instance_number: int | None = None
+    status: str | None = None
+    status_detail: str | None = None
+    public_ip: str | None = Field(alias="publicip", default=None)
 
     # timestamp in epoch seconds
-    last_modified_timestamp: Optional[float] = None
+    last_modified_timestamp: float | None = None
 
-    cpu_percent: Optional[str] = None
-    memory_percent: Optional[str] = None
-    disk: Optional[str] = None
-    logs: Optional[str] = None
+    cpu_percent: str | None = None
+    memory_percent: str | None = None
+    disk: str | None = None
+    logs: str | None = None
 
-    host_ip: Optional[str] = None
-    host_port: Optional[int] = None
-    worker_id: Optional[str] = None
+    host_ip: str | None = None
+    host_port: int | None = None
+    worker_id: str | None = None
 
     @field_validator(
         "status",
@@ -68,16 +68,16 @@ class JobInstance(BaseModel):
 class Job(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    id: Optional[str] = Field(alias="_id", default=None)
-    job_name: Optional[str] = None
-    status: Optional[str] = None
-    status_detail: Optional[str] = None
-    instance_list: Optional[List[JobInstance]] = None
-    virtualization: Optional[str] = None
+    id: str | None = Field(alias="_id", default=None)
+    job_name: str | None = None
+    status: str | None = None
+    status_detail: str | None = None
+    instance_list: list[JobInstance] | None = None
+    virtualization: str | None = None
 
     @field_validator("id", mode="before")
     @classmethod
-    def transform_id(cls, value: Any) -> Optional[str]:
+    def transform_id(cls, value: Any) -> str | None:
         if value is None:
             return value
 
@@ -110,15 +110,15 @@ class Job(BaseModel):
 class JobInstanceResources(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    job_name: Optional[str] = None
-    instance_number: Optional[int] = Field(default=None, alias="instance")
-    virtualization: Optional[str] = None
-    logs: Optional[str] = None
+    job_name: str | None = None
+    instance_number: int | None = Field(default=None, alias="instance")
+    virtualization: str | None = None
+    logs: str | None = None
 
     # These are explicitly defined as string in Go, but contain numbers or ""
-    cpu_percent: Optional[str] = None
-    memory_percent: Optional[str] = None
-    disk: Optional[str] = None
+    cpu_percent: str | None = None
+    memory_percent: str | None = None
+    disk: str | None = None
 
     @field_validator(
         "job_name", "virtualization", "logs", "cpu_percent", "memory_percent", "disk", mode="before"
