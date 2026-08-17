@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 """Generate protobuf Python bindings for all .proto files in the repo."""
 
 import subprocess
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
