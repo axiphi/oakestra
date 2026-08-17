@@ -4,6 +4,9 @@ import logging
 from datetime import datetime
 
 from bson import ObjectId
+from werkzeug.security import generate_password_hash
+
+from . import mongodb_client as db
 from .organization_db import (
     mongo_add_organization,
     mongo_add_user_role_to_organization,
@@ -11,9 +14,6 @@ from .organization_db import (
     mongo_get_organization_by_name,
     mongo_get_roles_of_user_in_organization,
 )
-from werkzeug.security import generate_password_hash
-
-from . import mongodb_client as db
 
 logger = logging.getLogger("system_manager")
 
