@@ -28,7 +28,6 @@ def generate(service_dir: Path, proto_rel_path: str) -> None:
         [
             "uv",
             "run",
-            "--no-sync",
             "-m",
             "grpc_tools.protoc",
             "-Isrc",

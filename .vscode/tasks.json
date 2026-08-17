@@ -129,13 +129,13 @@
         {
             "label": "install-cluster-manager-dependencies",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m pip install -r ${workspaceRoot}/cluster_orchestrator/cluster-manager/requirements.txt && ${command:python.interpreterPath} -m pip install ${workspaceRoot}/libraries/oakestra_utils_library ${workspaceRoot}/libraries/resource_abstractor_client" ,
+            "command": "uv sync --package cluster-manager",
             "problemMatcher": []
         },
         {
             "label": "install-root-manager-dependencies",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m pip install -r ${workspaceRoot}/root_orchestrator/system-manager-python/requirements.txt && ${command:python.interpreterPath} -m pip install ${workspaceRoot}/libraries/oakestra_utils_library ${workspaceRoot}/libraries/resource_abstractor_client" ,
+            "command": "uv sync --package system-manager",
             "problemMatcher": []
         },
         {
