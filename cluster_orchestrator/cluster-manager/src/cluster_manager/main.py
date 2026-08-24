@@ -139,6 +139,24 @@ def register_with_system_manager():
 start_http_server(10001)  # start prometheus server
 
 
+REGISTER_TIMEOUT_SECONDS = 10.0
+
+def _wait_until_serving():
+    """Waits until the server starts accepting TCP connections on loopback."""
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < REGISTER_TIMEOUT_SECONDS:
+        try:
+            # socket.create_connection tries IPv6 (::1) and IPv4 (127.0.0.1) automatically
+            with socket.create_connection(("localhost", CONFIG.port), timeout=0.2):
+                logger.info(f"Server is listening and accepting traffic on port {CONFIG.port}")
+                return True
+        except (OSError, socket.timeout):
+            pass
+        time.sleep(0.05)
+
+    raise TimeoutError(f"Server did not open port {CONFIG.port} within {REGISTER_TIMEOUT_SECONDS}s.")
+
+
 def _register_in_background():
     # The root probes GET /api/cluster/status on this cluster_manager during
     # registration. That probe can only succeed once gunicorn's worker has
@@ -147,8 +165,8 @@ def _register_in_background():
     # the gRPC call — otherwise the root's probe deadlocks against our own
     # startup. Give gunicorn a moment to start serving, then register. On
     # failure, exit the worker so gunicorn respawns it and tries again.
-    time.sleep(2)
     try:
+        _wait_until_serving()
         register_with_system_manager()
     except Exception:
         logger.exception("Cluster registration failed; exiting worker for restart")
