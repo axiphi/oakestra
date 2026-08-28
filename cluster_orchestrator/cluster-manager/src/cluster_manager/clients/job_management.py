@@ -17,16 +17,19 @@ from ..models.job import Job, JobInstance, JobInstanceResources
 logger = logging.getLogger("cluster_manager")
 
 
-def mark_inactive_as_failed(time_interval_seconds: int) -> None:
-    cutoff: float = (
-        datetime.now(timezone.utc) - timedelta(seconds=time_interval_seconds)
-    ).timestamp()
+def mark_inactive_as_failed(running_timeout: int, node_scheduled_timeout: int) -> None:
+    now: float = datetime.now(timezone.utc).timestamp()
+    running_cutoff: float = now - running_timeout
+    node_scheduled_cutoff: float = now - node_scheduled_timeout
+
+    # Pre-filter with the broadest cutoff so no potentially-stale instance is missed;
+    # per-status thresholds are applied below in Python.
+    max_cutoff: float = max(running_cutoff, node_scheduled_cutoff)
+
     query: Any = {
         "instance_list": {
             "$elemMatch": {
-                "$or": [
-                    {"last_modified_timestamp": {"$lt": cutoff}},
-                ]
+                "last_modified_timestamp": {"$lt": max_cutoff},
             }
         }
     }
@@ -39,9 +42,6 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
 
     for job in jobs:
         job_id: str = job.require_id()
-        job_status: Any = (
-            convert_to_status(job.status) if job.status is not None else LegacyStatus.LEGACY_0
-        )
 
         all_instances: list[JobInstance] = (
             job.instance_list if job.instance_list is not None else []
@@ -57,17 +57,28 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
 
             instance_number: int = instance.require_instance_number()
 
-            timestamp = (
-                instance.last_modified_timestamp
-                if instance.last_modified_timestamp is not None
-                else datetime.now(timezone.utc).timestamp()
+            instance_status: Any = (
+                convert_to_status(instance.status) if instance.status is not None else LegacyStatus.LEGACY_0
+            )
+            instance_timestamp =  instance.last_modified_timestamp if instance.last_modified_timestamp is not None else now
+
+            stale = (
+                (
+                        instance_status == PositiveSchedulingStatus.NODE_SCHEDULED
+                        and instance_timestamp < node_scheduled_cutoff
+                )
+                or (
+                        instance_status == PositiveSchedulingStatus.INSTANTIATION
+                        and instance_timestamp < running_cutoff
+                )
+                or (
+                        instance_timestamp < running_cutoff
+                        and instance_status not in PositiveSchedulingStatus
+                        and instance_status != DeploymentStatus.COMPLETED
+                )
             )
 
-            if (
-                timestamp < cutoff
-                and job_status not in PositiveSchedulingStatus
-                and job_status != DeploymentStatus.COMPLETED
-            ):
+            if stale:
                 update_instance(
                     job_id,
                     instance_number,
@@ -91,8 +102,11 @@ def mark_inactive_as_failed(time_interval_seconds: int) -> None:
     return
 
 
-def aggregate_info(time_interval_seconds: int) -> list[dict[str, Any]]:
-    mark_inactive_as_failed(time_interval_seconds)
+def aggregate_info(
+        running_timeout: int,
+        node_scheduled_timeout: int
+) -> list[dict[str, Any]]:
+    mark_inactive_as_failed(running_timeout, node_scheduled_timeout)
     jobs = job_operations.get_jobs() or []
 
     return [
@@ -179,10 +193,11 @@ def update_instance_resources(
     first_job: Job = Job.model_validate(job_objs[0])
     job_id = first_job.require_id()
 
+    reported_status = resources.status if resources.status else DeploymentStatus.UNKNOWN.value
     update_status(
         job_id,
         instance_number,
-        DeploymentStatus.RUNNING.value,
+        reported_status,
         None,  # I don't believe resources every carry a status detail
     )
     return update_instance(

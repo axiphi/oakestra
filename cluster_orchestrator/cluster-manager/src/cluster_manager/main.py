@@ -14,6 +14,7 @@ from flask_socketio import SocketIO
 from flask_swagger_ui import get_swaggerui_blueprint
 from prometheus_client import start_http_server
 
+import config
 from .app_config import CONFIG, GRPC_REQUEST_TIMEOUT, RUNTIME_CONFIG, SYSTEM_MANAGER_GRPC_ADDR
 from .app_logging import configure_logging
 from .blueprints import blueprints
@@ -26,7 +27,6 @@ from .ext_requests.system_manager_requests import (
 from .proto.cluster_registration_pb2 import CS1Message, CS2Message, KeyValue, SC1Message, SC2Message
 from .proto.cluster_registration_pb2_grpc import register_clusterStub
 
-BACKGROUND_JOB_INTERVAL = 15
 SWAGGER_URL = "/api/docs"
 API_URL = "/docs/openapi.json"
 
@@ -63,19 +63,23 @@ def launch_background_jobs(assigned_cluster_id: str):
     logger.info("Setting up background jobs...")
     scheduler = BackgroundScheduler()
 
+    aggregation_interval = CONFIG.aggregation_interval if CONFIG.aggregation_interval is not None else 15
+    node_scheduled_timeout = CONFIG.node_scheduled_timeout if CONFIG.node_scheduled_timeout is not None else 15
+
     # job_send_info
     scheduler.add_job(
         send_aggregated_info_to_sm,
         "interval",
-        seconds=BACKGROUND_JOB_INTERVAL,
+        seconds=aggregation_interval,
         kwargs={
             "assigned_cluster_id": assigned_cluster_id,
-            "time_interval_seconds": 2 * BACKGROUND_JOB_INTERVAL,
+            "running_timeout": aggregation_interval * 2,
+            "node_scheduled_timeout": node_scheduled_timeout,
         },
     )
 
     # job_re_deploy_dead_jobs
-    scheduler.add_job(re_deploy_dead_jobs_routine, "interval", seconds=BACKGROUND_JOB_INTERVAL)
+    scheduler.add_job(re_deploy_dead_jobs_routine, "interval", seconds=aggregation_interval)
 
     scheduler.start()
 

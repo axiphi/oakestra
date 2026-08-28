@@ -13,12 +13,22 @@ def _load_required_env_str(name: str) -> str:
     return value
 
 
-def _load_required_env_int(name: str) -> int:
-    value = _load_required_env_str(name)
+def _load_optional_env_int(name: str) -> int | None:
+    value = os.environ.get(name)
+    if not value:
+        return None
+
     try:
         return int(value)
     except ValueError:
         raise RuntimeError(f"Environment variable '${name}' is not an integer.")
+
+
+def _load_required_env_int(name: str) -> int:
+    value = _load_optional_env_int(name)
+    if not value:
+        raise RuntimeError(f"Required environment variable '${name}' is not set.")
+    return value
 
 
 def _build_http_url(host: str, port: int) -> str:
@@ -48,6 +58,9 @@ class EnvironmentConfig:
     mqtt_cert: str | None
     cluster_keyfile_password: str | None
     log_level: str | None
+    aggregation_interval: int | None # default 15
+    node_scheduled_timeout: int | None # default 15
+
 
     @classmethod
     def load(cls) -> "EnvironmentConfig":
@@ -68,6 +81,8 @@ class EnvironmentConfig:
             mqtt_cert=_load_optional_env_str("MQTT_CERT"),
             cluster_keyfile_password=_load_optional_env_str("CLUSTER_KEYFILE_PASSWORD"),
             log_level=_load_optional_env_str("LOG_LEVEL"),
+            aggregation_interval=_load_optional_env_int("AGGREGATION_INTERVAL"),
+            node_scheduled_timeout=_load_optional_env_int("NODE_SCHEDULED_TIMEOUT"),
         )
 
 

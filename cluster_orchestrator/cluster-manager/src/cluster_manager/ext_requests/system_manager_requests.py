@@ -21,12 +21,16 @@ from .scheduler_requests import scheduler_request_deploy
 logger = logging.getLogger("cluster_manager")
 
 
-def send_aggregated_info_to_sm(assigned_cluster_id: str, time_interval_seconds: int) -> None:
+def send_aggregated_info_to_sm(
+        assigned_cluster_id: str,
+        running_timeout: int,
+        node_scheduled_timeout: int
+) -> None:
     try:
         metrics = resource_aggregation.compute_aggregated_worker_metrics()
 
         metrics_msg = dataclasses.asdict(metrics) if metrics is not None else {}
-        metrics_msg.update({"jobs": job_management.aggregate_info(time_interval_seconds)})
+        metrics_msg.update({"jobs": job_management.aggregate_info(running_timeout, node_scheduled_timeout)})
 
         logger.debug("sending aggregated info to system manager")
         threading.Thread(
