@@ -14,7 +14,6 @@ from flask_socketio import SocketIO
 from flask_swagger_ui import get_swaggerui_blueprint
 from prometheus_client import start_http_server
 
-import config
 from .app_config import CONFIG, GRPC_REQUEST_TIMEOUT, RUNTIME_CONFIG, SYSTEM_MANAGER_GRPC_ADDR
 from .app_logging import configure_logging
 from .blueprints import blueprints
