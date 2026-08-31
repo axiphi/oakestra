@@ -141,6 +141,7 @@ start_http_server(10001)  # start prometheus server
 
 REGISTER_TIMEOUT_SECONDS = 10.0
 
+
 def _wait_until_serving():
     """Waits until the server starts accepting TCP connections on loopback."""
     start_time = time.monotonic()
@@ -150,11 +151,13 @@ def _wait_until_serving():
             with socket.create_connection(("localhost", CONFIG.port), timeout=0.2):
                 logger.info(f"Server is listening and accepting traffic on port {CONFIG.port}")
                 return True
-        except (OSError, socket.timeout):
+        except (TimeoutError, OSError):
             pass
         time.sleep(0.05)
 
-    raise TimeoutError(f"Server did not open port {CONFIG.port} within {REGISTER_TIMEOUT_SECONDS}s.")
+    raise TimeoutError(
+        f"Server did not open port {CONFIG.port} within {REGISTER_TIMEOUT_SECONDS}s."
+    )
 
 
 def _register_in_background():
