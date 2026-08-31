@@ -58,23 +58,29 @@ def mark_inactive_as_failed(running_timeout: int, node_scheduled_timeout: int) -
             instance_number: int = instance.require_instance_number()
 
             instance_status: Any = (
-                convert_to_status(instance.status) if instance.status is not None else LegacyStatus.LEGACY_0
+                convert_to_status(instance.status)
+                if instance.status is not None
+                else LegacyStatus.LEGACY_0
             )
-            instance_timestamp =  instance.last_modified_timestamp if instance.last_modified_timestamp is not None else now
+            instance_timestamp = (
+                instance.last_modified_timestamp
+                if instance.last_modified_timestamp is not None
+                else now
+            )
 
             stale = (
                 (
-                        instance_status == PositiveSchedulingStatus.NODE_SCHEDULED
-                        and instance_timestamp < node_scheduled_cutoff
+                    instance_status == PositiveSchedulingStatus.NODE_SCHEDULED
+                    and instance_timestamp < node_scheduled_cutoff
                 )
                 or (
-                        instance_status == PositiveSchedulingStatus.INSTANTIATION
-                        and instance_timestamp < running_cutoff
+                    instance_status == PositiveSchedulingStatus.INSTANTIATION
+                    and instance_timestamp < running_cutoff
                 )
                 or (
-                        instance_timestamp < running_cutoff
-                        and instance_status not in PositiveSchedulingStatus
-                        and instance_status != DeploymentStatus.COMPLETED
+                    instance_timestamp < running_cutoff
+                    and instance_status not in PositiveSchedulingStatus
+                    and instance_status != DeploymentStatus.COMPLETED
                 )
             )
 
@@ -102,10 +108,7 @@ def mark_inactive_as_failed(running_timeout: int, node_scheduled_timeout: int) -
     return
 
 
-def aggregate_info(
-        running_timeout: int,
-        node_scheduled_timeout: int
-) -> list[dict[str, Any]]:
+def aggregate_info(running_timeout: int, node_scheduled_timeout: int) -> list[dict[str, Any]]:
     mark_inactive_as_failed(running_timeout, node_scheduled_timeout)
     jobs = job_operations.get_jobs() or []
 

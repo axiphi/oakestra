@@ -122,7 +122,14 @@ class JobInstanceResources(BaseModel):
     disk: str | None = None
 
     @field_validator(
-        "job_name", "virtualization", "logs", "status", "cpu_percent", "memory_percent", "disk", mode="before"
+        "job_name",
+        "virtualization",
+        "logs",
+        "status",
+        "cpu_percent",
+        "memory_percent",
+        "disk",
+        mode="before",
     )
     @classmethod
     def empty_string_to_none(cls, value: Any) -> Any:

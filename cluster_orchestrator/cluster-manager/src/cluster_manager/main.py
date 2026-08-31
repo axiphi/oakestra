@@ -63,8 +63,12 @@ def launch_background_jobs(assigned_cluster_id: str):
     logger.info("Setting up background jobs...")
     scheduler = BackgroundScheduler()
 
-    aggregation_interval = CONFIG.aggregation_interval if CONFIG.aggregation_interval is not None else 15
-    node_scheduled_timeout = CONFIG.node_scheduled_timeout if CONFIG.node_scheduled_timeout is not None else 15
+    aggregation_interval = (
+        CONFIG.aggregation_interval if CONFIG.aggregation_interval is not None else 15
+    )
+    node_scheduled_timeout = (
+        CONFIG.node_scheduled_timeout if CONFIG.node_scheduled_timeout is not None else 15
+    )
 
     # job_send_info
     scheduler.add_job(

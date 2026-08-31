@@ -58,9 +58,8 @@ class EnvironmentConfig:
     mqtt_cert: str | None
     cluster_keyfile_password: str | None
     log_level: str | None
-    aggregation_interval: int | None # default 15
-    node_scheduled_timeout: int | None # default 15
-
+    aggregation_interval: int | None  # default 15
+    node_scheduled_timeout: int | None  # default 15
 
     @classmethod
     def load(cls) -> "EnvironmentConfig":
