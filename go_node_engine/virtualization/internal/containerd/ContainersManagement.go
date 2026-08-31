@@ -589,7 +589,7 @@ func (r *ContainerRuntime) ResourceMonitoring(every time.Duration, notifyHandler
 				Runtime:  string(model.CONTAINER_RUNTIME),
 				Logs:     logutils.GetLogs(taskId),
 				Instance: taskid.ExtractInstanceNumber(taskId),
-                Status:   r.taskStatus(task),
+				Status:   r.taskStatus(task),
 			})
 		}
 		resourceList = append(resourceList, model.InstantiatingResources(model.CONTAINER_RUNTIME)...)
