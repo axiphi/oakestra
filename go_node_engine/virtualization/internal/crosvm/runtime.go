@@ -45,10 +45,10 @@ type Runtime struct {
 
 	systemMetricsTracker *stats.SystemMetricsTracker
 
-	gpuConfig gpuconfig.RuntimeGpuConfig
+	gpuConfig *gpuconfig.RuntimeGpuConfig
 }
 
-func newRuntime(info virtrt.RuntimeInfo, _ []string) virtrt.Runtime {
+func newRuntime(info virtrt.RuntimeInfo, options []string) virtrt.Runtime {
 	systemMetricsTracker, err := stats.NewSystemMetricsTracker()
 	if err != nil {
 		logger.ErrorLogger().Printf("failed to create SystemMetricsTracker: %v", err)
@@ -136,9 +136,7 @@ func newRuntime(info virtrt.RuntimeInfo, _ []string) virtrt.Runtime {
 
 		systemMetricsTracker: systemMetricsTracker,
 
-		gpuConfig: gpuconfig.RuntimeGpuConfig{
-			DrmEnabled: false,
-		},
+		gpuConfig: gpuconfig.NewRuntimeGpuConfig(options),
 	}
 }
 
@@ -154,7 +152,7 @@ func (r *Runtime) Deploy(service model.Service, statusChangeNotificationHandler 
 	inst, ok := r.instances[id]
 	if !ok {
 		var err error
-		inst, err = instance.NewInstance(id, service, statusChangeNotificationHandler, r.executablePath, r.runtimeDirPath, r.stateDirPath, r.imageStore, &r.gpuConfig)
+		inst, err = instance.NewInstance(id, service, statusChangeNotificationHandler, r.executablePath, r.runtimeDirPath, r.stateDirPath, r.imageStore, r.gpuConfig)
 		if err != nil {
 			return err
 		}
