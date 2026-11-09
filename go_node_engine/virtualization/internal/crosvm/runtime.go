@@ -45,7 +45,7 @@ type Runtime struct {
 	systemMetricsTracker *stats.SystemMetricsTracker
 }
 
-func newRuntime(info virtrt.RuntimeInfo) virtrt.Runtime {
+func newRuntime(info virtrt.RuntimeInfo, _ []string) virtrt.Runtime {
 	systemMetricsTracker, err := stats.NewSystemMetricsTracker()
 	if err != nil {
 		logger.ErrorLogger().Printf("failed to create SystemMetricsTracker: %v", err)
